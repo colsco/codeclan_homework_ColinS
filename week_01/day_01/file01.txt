@@ -1,3 +1,5 @@
 This is the first text file.
 
 This is a change.
+
+This is a second change to practice committing and pushing.
