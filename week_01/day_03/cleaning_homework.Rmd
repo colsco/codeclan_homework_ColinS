@@ -1,0 +1,237 @@
+---
+title: "Cleaning & Extra `dplyr` Homework"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    css: ../../../styles.css
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+<br>
+In this homework you are going to use a dataset about movies from [Kaggle](https://www.kaggle.com/tmdb/tmdb-movie-metadata).
+
+Copy over the data to your homework directory and read it in. Remember to load any packages you will be using.
+
+# MVP
+<br>
+**Question 1.** 
+
+After you've read in the data and assigned it to a variable with a useful name, investigate it. Write down some ideas for what you could do to further investigate/clean this data using what you've learned today (no need to code it though, just jot down thoughts and ideas). Feel free to also write down any general thoughts you get looking at the data - this task is just to get you thinking about data and data cleaning/prepping.
+
+```{r}
+library(tidyverse)
+library(janitor)
+
+movies <- read_csv("../../../de13_classnotes/week_01/day_3/6_homework_cleaning_data/data/movies.csv")
+
+View(movies)
+names(movies)
+
+
+```
+
+
+"Movies" contains 4803 observations of 13 variables.  
+- There are a few 'NA' in the data which could be cleaned up - in fact, the homepage column is pretty redundant for analysis so the whole column could possibly be removed.
+- The original_language abbreviations aren't necessarily obvious, so the two-letter code could be mutated to clearer definitions (e.g. mutating 'en' to 'english' etc. )
+- Some of the entries are set to 0 in revenue, runtime and budget - this probably represents missing data.
+- Some of the vote averages and vote counts are also very low or 0, so will need some further consideration.
+- Some of the titles contain special characters like parentheses, hashtags etc.
+
+Where data exists, some aspects for investigation could include the relationships between;
+- budget and revenue
+- release_date and revenue
+- budget and vote_average
+- revenue and vote_average
+- original_language and vote_average
+- original_language and revenue
+- popularity and vote_count
+- popularity and vote_average
+
+
+<br> 
+
+**Question 2.**
+
+A lot of interesting stuff in there! But for now, we are only interested in the movies' titles, their runtime as well as their budget. Select the three columns that contain this information and save them into a new variable called `movies_selected`. Hint: you will have to make a choice between `original_title` and `title`.
+
+```{r}
+
+movies_selected <- select(movies, title, runtime, budget)
+movies_selected
+
+```
+
+
+<br>
+
+
+**Question 3.**  
+
+Ok, now take your subsetted data `movies_selected`, and count the number of missing values in each column. 
+
+
+```{r}
+
+movies_selected %>% 
+   summarise(count = sum(is.na(title)))
+
+
+```
+
+
+
+There are no 'NA' values in 'title'.
+
+```{r}
+
+movies_selected %>% 
+   summarise(count = sum(is.na(runtime)))
+
+```
+
+There are two 'NA' values in 'runtime'.
+
+
+```{r}
+
+movies_selected %>% 
+   summarise(count = sum(is.na(budget)))
+
+```
+
+There are no 'NA' values in 'budget'.
+
+<br>
+
+**Question 4.**  
+
+There's not too many NAs, but there are actually quite a few movies with a runtime of 0 in this dataset. Since it's impossible for a movie to have a runtime of 0, use the function `na_if` to convert runtimes of length 0 into NAs. Save this into a new variable called `movies_runtime`. Then count how many missing values there are now in the column `runtime`.
+
+```{r}
+
+movies_runtime <- movies_selected %>% 
+  mutate(runtime = na_if(runtime, 0))  
+
+movies_runtime %>% 
+  summarise(count = sum(is.na(runtime)))
+
+```
+
+There are 37 missing values now.  This is higher than the original count, because the '0' values have been converted into NA.
+
+
+
+
+<br>
+
+**Question 5.**  
+
+Impute the missing values in `runtime` with the median runtime using `coalesce` and save this into a new variable called `movies_imputed`. There should now be no missing values in the column `runtime` - check this to make sure.
+
+```{r}
+
+movies_imputed <- movies_runtime %>% 
+       mutate(runtime = coalesce(runtime, median(runtime, na.rm = TRUE))) # note the na.rm statement is needed, otherwise the median cannot be calculated because there's no such thing as the median of NA!
+
+movies_imputed %>% 
+  summarise(count = sum(is.na(runtime)))
+
+```
+
+
+There are now no missing values in runtime.
+
+
+<br>
+
+**Question 6.**  
+
+Finally, use the `slice_min` and `slice_max` functions on `movies_imputed` to get the movies with the 10 shortest and 10 longest runtimes.
+
+```{r}
+
+movies_imputed %>% 
+  slice_max(runtime, n = 10) 
+
+movies_imputed %>% 
+  slice_min(runtime, n = 10)
+  
+```
+
+
+<br>
+**Question 7.**  
+
+Using the `if_else` function, impute anything with a budget below $100 with the median budget. Overwrite your `movies_imputed` so it contains the new budget values.
+
+
+```{r}
+
+movies_imputed <- movies_imputed %>% 
+  mutate(budget = if_else(budget < 100, median(budget), budget))
+
+
+```
+
+
+
+
+
+
+
+
+
+# Extension
+
+
+<br> 
+
+**Question 1.**  
+
+Using `case_when`, create a new column called `budget_type` and label budgets as follows:
+
+* Budgets below 12 million as 'Small budget'
+* Budgets between 12 and 40 million as 'Medium budget'
+* Budgets 40 millions and above as 'Big budget'
+
+Save this into a new variable called `movie_budgets`.
+
+<details>
+<summary>**Hint:**</summary> 1e6 is a shorthand way of writing 1 million ($1 \times 10^6$)
+</details>
+
+<br> 
+
+
+```{r}
+
+movie_budgets <- movies_imputed %>% 
+   mutate(budget_type = case_when(budget < 12e6 ~ 'Small budget',
+                                  budget >= 12e6 & budget < 40e6 ~ 'Medium budget',
+                                  budget >= 40e6 ~ 'Big budget')) 
+```
+
+
+
+
+
+
+
+
+**Question 2.**  
+
+Take the original dataset with all the variables. Using `across` and `where`, summarise the number of missing values, first across all columns of type `character`, and then across all columns of type `numeric`.
+
+
+
+
+<br> 
+
