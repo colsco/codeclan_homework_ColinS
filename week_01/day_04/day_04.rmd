@@ -1,0 +1,107 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+```
+
+Question 1.
+
+Read in the data and investigate it, e.g. variables, variable types, dimensions etc.
+
+```{r}
+wines <- read_csv("../../../de13_classnotes/week_01/day_4/4_extra_dplyr_practice/data/wine_ratings.csv")
+```
+
+```{r}
+names(wines)
+```
+
+```{r}
+head(wines, 10)
+
+```
+
+```{r}
+
+dim(wines)
+
+```
+
+Question 2.
+
+Select columns title, taster_name, points, price, and country, then drop all NAs. Save into a variable called wine_subset. Use this variable for all subsequent tasks.
+
+
+
+```{r}
+
+wine_subset <- wines %>% 
+  select(title, taster_name, points, price, country) %>%
+  drop_na()
+
+```
+
+
+
+Question 3.
+
+Find the 5 countries with the highest mean points.
+
+```{r}
+
+wine_subset %>% 
+  group_by(country) %>% 
+  summarise(avg_points = mean(points)) %>% 
+  slice_max(order_by = avg_points, n = 5)
+
+
+```
+
+
+
+
+Question 4.
+
+Find the 5 countries with the lowest mean prices.
+
+```{r}
+wine_subset %>% 
+  group_by(country) %>% 
+  summarise(avg_price = mean(price)) %>% 
+  slice_min(order_by = avg_price, n = 5)
+```
+
+
+Question 5.
+
+Does the result differ if you use the median instead of the mean for Questions 3 and 4?
+
+
+
+Question 6.
+
+Find the names of all the tasters using distinct. Then take a random sample of 5 names using sample_n. Save these 5 names into a new variable called taster_sample which should be a character vector containing only the names.
+
+Hint: You can use the function pull to extract a single column as a vector.
+
+
+Question 7
+
+Do the same thing for country, i.e. create a character vector called country_sample using distinct and pull, but this time use sample_frac to pick 10 countries at random.
+
+Hint: What is the proportion of countries you want? (part / whole)
+
+
+Question 8
+
+Filter the rows of wine_subset so you are left only with data from the 5 tasters in your taster_sample and from the countries in your country_sample. Save this into a new variable called wine_sample.
+
+
+
+Question 9
+
+Using your wine_sample, create a new column difference_from_avg which contains the difference between each wine’s rating (points) and the average rating for that taster, then arrange the differences to see the highest positive difference first. [Hint: you will first have to calculate the average points for each taster]
+

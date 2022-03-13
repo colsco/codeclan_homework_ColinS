@@ -33,7 +33,7 @@ movies <- read_csv("../../../de13_classnotes/week_01/day_3/6_homework_cleaning_d
 
 View(movies)
 names(movies)
-
+nrow(movies) - nrow(drop_na(movies)) # how many rows are lost if you drop NAs?
 
 ```
 

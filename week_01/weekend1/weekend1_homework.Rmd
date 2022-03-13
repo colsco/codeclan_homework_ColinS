@@ -1,0 +1,228 @@
+---
+title: "Weekend 1 Homework"
+output: html_notebook
+---
+
+
+Start by setting up the libraries;
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(treemap)
+
+```
+
+Read in the data set and assign it to something we can work with;
+
+```{r}
+books <- read_csv("data/books.csv")
+```
+
+Check out some of the dimensions and contents
+
+
+```{r}
+
+dim(books)
+glimpse(books)
+str(books)
+
+```
+
+The data set contains 11123 observations of 13 variables.  The 13 columns consist of some *double* and some *character* class types.
+
+`bookID` looks like it skips a few numbers (3, 7, 11, ...).  Does this mean there's missing data?  How many NAs does the whole data set contain?
+
+
+
+```{r}
+books %>% 
+  summarise(sum(across(.cols = everything(), .fns = ~is.na(books))))
+```
+
+So there are no NAs in the data.  
+
+`bookID` as a column header doesn't follow the CodeClan style, so I'll change that to lower case and overwrite the original;
+
+```{r}
+books <- books %>% 
+  clean_names()
+```
+
+
+There are obviously several language codes being shown in the table, along with text from non-Latin alphabets.  How many languages are actually represented?
+
+```{r}
+books %>% 
+  count(language_code)
+
+```
+
+There are 27 language groups represented, but it looks like lot of these could be grouped together; there appear to be four variations of "English" representing Canada, the US, the UK and a general English category.  It would make sense to group these under one English group, "eng".
+
+
+```{r}
+books_grouped <- books %>% 
+   mutate(language_code2 = recode(
+                                  language_code, "en-CA" = "eng", 
+                                                 "en-GB" = "eng",
+                                                 "en-US" = "eng",
+                                 ))  # tried adding ".after = language_code" 
+                                    # into the mutate function here, but it made 
+                                    # no difference to the column location...?
+
+```
+
+
+So what is the mean rating per language and what are our top ten high scoring languages?
+
+
+```{r}
+
+rating_by_language <- books_grouped %>% 
+  group_by(language_code2) %>% 
+  summarise(average_score = mean(average_rating)) %>% 
+  slice_max(average_score, n = 10)
+
+rating_by_language
+
+```
+
+At this point we have an answer to the question "What's the average book rating per language code?", but it also raises some more questions.  It looks like the "wel" language books have a perfect mean score of 5.  Is that realistic?  How many Welsh language books are actually in the list?
+
+```{r}
+books_grouped %>% 
+  filter(language_code2 == "wel") %>% 
+  summarise(title, authors, average_rating, ratings_count)
+```
+
+
+So there's only one book in Welsh ('wel') which was given a five-star rating, but it only has one review.  That seems like a very small number of reviews and not a viable sample size.
+
+Is this a one-off?  How do numbers of ratings vary by language?
+
+```{r}
+rates_per_language <- books_grouped %>% 
+  group_by(language_code2) %>% 
+  summarise(rate_count_per_language = sum(ratings_count)) %>% 
+  arrange((-rate_count_per_language)) 
+# '-' in this argument puts into descending order
+
+rates_per_language
+
+```
+English language books have a significantly higher number of ratings than any other language.  If we look at the 10 languages with the *lowest* quantities of ratings;
+
+```{r}
+rate_count_low <- rates_per_language %>% 
+  slice_min(rate_count_per_language, n =10) %>% 
+  arrange(rate_count_per_language)
+rate_count_low
+```
+
+
+And try to visualise this;
+
+```{r}
+xaxis_order <- c("zho", "ara", "ale", "nor", "nl", 
+                 "glg", "msa", "gla", "wel", "srp")
+#  xaxis_order sets up a character vector to manually feed the data into ggplot in the order I want, rather than the default alphabetical order.  Is there a more concise way to do this within ggplot?
+
+rates_chart <- rate_count_low %>% 
+  ggplot()+
+  geom_col(mapping = aes(x = factor(language_code2, level = xaxis_order), 
+                         y = rate_count_per_language)) + 
+  theme_light() +
+  labs(x = "Book Language Code", y = "No. Book Ratings")
+  
+
+rates_chart
+```
+It looks like Serbian (srp) books have no ratings assigned to them and Welsh (wel) books only have one rating.  Scottish Gaelic (gla) is also relatively low with only 11 ratings.  This suggests wel and gla might be the top two highest scoring language groups by virtue of having a very small number of high scoring reviews, rather than any special writing ability by Welsh and Gaelic speakers!
+
+---------------------------------------------------------------------------------
+
+Looking at the top 10 average page count by language;
+
+```{r}
+avg_pages_grouped <- books_grouped %>% 
+  group_by(language_code2) %>% 
+  summarise(avg_pagecount = mean(num_pages)) %>% 
+  slice_max(order_by = avg_pagecount, n = 10)
+
+   
+
+avg_pages_grouped
+```
+
+
+```{r}
+xaxis_pagecount <- c("enm", "msa", "nl", "glg", "ale", 
+                     "mul", "grc", "tur", "ita", "ger")
+# vector set up to manually reorder x-axis in ggplot below.  Descending order of data, rather than alphabetical order.
+  
+  avg_pages_chart <- avg_pages_grouped %>% 
+  ggplot()+
+  geom_col(mapping = aes(x = factor(language_code2, levels = xaxis_pagecount), 
+                         y = avg_pagecount)) + 
+  theme_light() +
+  labs(x = "Language Code", y = "Average no. Pages")
+
+avg_pages_chart
+```
+
+The books with the highest average page count are written in Middle English (enm).
+
+Group languages by similar sizes of books;
+
+```{r}
+
+books_grouped <- books_grouped %>% 
+  mutate(booksize = case_when(
+                              mean(num_pages) <= 300 ~ "Small",
+                              mean(num_pages) <= 500 ~ "Medium",
+                              mean(num_pages) <= 700 ~ "Large",
+                              mean(num_pages) >  700 ~ "X Large"
+                              ))
+
+books_grouped %>% 
+  select(title, language_code2, num_pages, booksize)
+
+
+```
+Something that might have been useful earlier on is knowing how many books there are per language code;
+
+```{r}
+num_books_per_language <- books_grouped %>% 
+  group_by(language_code2) %>% 
+  summarise(num_books = n()) %>% 
+  arrange(-num_books)
+
+num_books_per_language
+
+```
+
+
+```{r}
+num_books_chart <- num_books_per_language %>% 
+  ggplot()+
+  geom_col(mapping = aes(x = factor(language_code2), 
+                         y = num_books)) + 
+  theme_light() +
+  labs(x = "Language Code", y = "No. Books Registered")
+
+num_books_chart
+```
+The chart above basically shows that the vast majority of books are in the english language, to the extent that the countries with fewer books disappear in the chart.  Try a different chart type, e.g. a treemap;
+
+```{r}
+
+treemap(num_books_per_language,
+            index = "language_code2",
+            vSize = "num_books",
+            type = "index",
+            title = "Number of Books per Language Code in 'books.csv'"
+            )
+```
+
