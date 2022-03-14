@@ -1,0 +1,225 @@
+---
+title: "Joins and `tidyr` Homework"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    css: ../../../styles.css
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(janitor)
+```
+
+
+<br>
+
+The data for the joining tasks is from [Kaggle](https://www.kaggle.com/ananta/credit-card-data) and contains synthetic (fake) credit card information and transactions. The data for the `tidyr` tasks is also synthetic.
+
+# MVP
+
+## Joins
+
+<br>
+**Question 1**
+
+Read in all 4 credit card transaction datasets and clean column names.
+
+```{r}
+cardbase <- read_csv("data/CardBase.csv")
+customerbase <- read_csv("data/CustomerBase.csv")
+fraudbase <- read_csv("data/FraudBase.csv")
+transactions <- read_csv("data/TransactionBase.csv")
+
+```
+
+```{r}
+cardbase <- cardbase %>% 
+  clean_names() 
+  View(cardbase)
+
+customerbase <- customerbase %>% 
+  clean_names() 
+  View(customerbase)
+
+fraudbase <- fraudbase %>% 
+  clean_names() 
+  View(fraudbase)
+
+transactions <- transactions %>% 
+  clean_names() 
+  View(transactions)
+
+
+```
+
+
+
+**Question 2**
+
+Join the data containing card details and customer details by customer id, so that all records of card details and any matching records in customer details are kept. Before you run the code, think about how many rows you expect to see after joining.
+
+
+Customer details contains 500 rows of data.  Cardbase contains > 5000 entries.  I'd expect all of the customers to have at least one card, so I'm expecting at least 500 entries in the joined table.  
+
+```{r}
+
+card_data_join <- left_join(cardbase,
+                          customerbase,
+                          by = "cust_id")
+
+card_data_join
+
+```
+
+
+**Question 3**
+
+Join the data containing fraud details with transaction details so all rows of both tables are kept. What does the resulting row number tell you?
+
+```{r}
+fraud_trans_join <- full_join(fraudbase, 
+                              transactions)
+
+fraud_trans_join
+```
+
+The resulting joined table contains 10000 rows, which confirms that all "transactions" data has been retained, whether or not it has fraudulent activity associated with it.
+
+
+
+**Question 4**
+
+Join the data containing card details with transaction details so rows from the first which have matching ones in the second are returned, but only return rows in the first table once.
+
+```{r}
+
+cardbase <- cardbase %>% 
+  rename(credit_card_id = card_number)
+
+
+card_trans_join <- semi_join(cardbase,
+                             transactions,
+                             by = "credit_card_id")
+
+card_trans_join
+
+
+```
+
+
+## `tidyr`
+
+**Question 5**
+
+Read in `hat_observations` and separate `observation` into two columns, `hat_colour` and `hat_type`.
+
+```{r}
+hats <- read_csv("data/hat_observations.csv")
+```
+
+```{r}
+hats_seperated <- hats %>% 
+  separate(col = observation, 
+           into = c("hat_colour", "hat_type"),
+           sep = ",")                                   # no 'space' needed
+hats_seperated
+
+```
+
+
+
+
+**Question 6**
+
+Unite `day`, `month`, and `year` columns into a column called `date` using a suitable separator. Then find the date where the most berets were observed.
+
+
+```{r}
+hats_dated <- hats_seperated %>% 
+                unite(col = "date", 
+                      day, 
+                      month, 
+                      year, 
+                      sep = ".")
+
+hats_dated %>% 
+  filter(hat_type == "beret") %>% 
+  slice_max(observation_count, n = 5)
+  
+```
+
+The most berets (9) were observed on 18.6.2018.
+
+
+
+
+
+# Extension
+
+## Joins
+
+**Question 1**
+
+Can you join all 4 datasets together so that you're left with a dataset that looks like below with **109 rows** and **12 columns**?
+
+![](images/all_joined.png)
+
+```{r}
+
+full_fraud_trans <- inner_join(transactions,
+          fraudbase,
+          )
+
+
+all_card_joined <- right_join(card_data_join,
+           full_fraud_trans,
+           by = c("card_number" = "credit_card_id"))
+
+View(all_card_joined)
+```
+
+
+
+
+## `tidyr`
+
+**Question 2**
+
+Read in `exam_scores` and transform it into long format with two new columns `exam_question` and `score`. Then, using `separate` and `select`, remove superfluous information from the values in `exam_question`
+
+```{r}
+exams <- read_csv("data/exam_scores.csv")
+
+```
+
+```{r}
+long_exams <- exams %>% 
+  pivot_longer(col = starts_with("exam"),
+               names_to = "exam_question",
+               values_to = "score",
+               names_prefix = "exam_")
+
+long_exams
+```
+
+
+
+```{r}
+long_exams_separated <- long_exams %>% 
+  separate(exam_question,
+           into = c("q", "exam_question"),
+           sep = 1) %>% 
+  select(-q)
+
+long_exams_separated
+```
+
