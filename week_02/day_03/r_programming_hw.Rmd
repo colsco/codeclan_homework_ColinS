@@ -225,8 +225,15 @@ twelves <- c(1:12)
 
 times_table <- matrix(list(row_value, col_value), nrow = 12, ncol = 12)
 
+
 #apply(times_table, c(1, 2), )
-  
+
+
+# From David - to set up col/row names in a matrix:
+
+my_matrix <- matrix(1:4, nrow = 2, dimnames = list(c("row_1", "row_2"), c("col_1", "col_2")))
+
+my_matrix[,"col_2"]
   
   
   

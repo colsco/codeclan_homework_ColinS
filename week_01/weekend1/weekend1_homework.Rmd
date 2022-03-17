@@ -1,6 +1,8 @@
 ---
 title: "Weekend 1 Homework"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 
