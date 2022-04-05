@@ -35,8 +35,7 @@ revenue %>%
   aes(x = year, y = revenue, fill = product) + 
   geom_col(colour = "black") + 
   labs(title = "Sources of Revenue: 2018 - 2019") +
-  theme(title = element_text(size = 12)) +
-  theme_bw()
+  theme_bw(base_size = 12)
 ```
 
 # Question 2.
@@ -55,8 +54,7 @@ ggplot(kwikbit_sales) +
   geom_line(colour = "#E89FE9") +
   geom_point(aes(x = date, y = amount), colour = "#E89FE9") +
   labs(title = "KwikBit Unit 1 Revenue by Month") +
-  theme(title = element_text(size = 12)) +
-  theme_bw()
+  theme_bw(base_size = 12)
   
 ```
 
@@ -78,8 +76,8 @@ operating_profit %>%
   geom_line() +
   geom_point(aes(x = date, y = amount)) +
   labs(title = "12 Month Cost/Revenue") +
-  theme(title = element_text(size = 12)) +
-  theme_bw()
+  theme_bw(base_size = 12)
+
 ```
 
 # Question 4.
@@ -93,8 +91,8 @@ competitors %>%
   geom_area() +
   scale_fill_brewer(palette = "Oranges") + 
   labs(title = "Fitness Tracker Sales by Company, 2015 - 2019") + 
-  theme(title = element_text(size = 12)) +
-  theme_bw()
+  theme_bw(base_size = 12)
+
 ```
 
 # Question 5.
@@ -108,8 +106,8 @@ competitors %>%
   geom_point() +
   scale_fill_brewer(palette = "Set1") + 
   labs(title = "Fitness Tracker Sales by Company, 2015 - 2019") + 
-  theme(title = element_text(size = 12)) +
-  theme_bw()
+  theme_bw(base_size = 12)
+
 ```
 
 # Question 6.
@@ -122,8 +120,8 @@ device %>%
     aes(x = hours, y = counts, colour = device) + 
     geom_line() +
     facet_wrap(device ~ id) +
-  theme(title = element_text(size = 12)) +
-  theme_bw()
+    theme_bw(base_size = 12)
+
   
   
 ```

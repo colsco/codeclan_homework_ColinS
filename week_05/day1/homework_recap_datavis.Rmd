@@ -1,0 +1,60 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+```{r}
+library(tidyverse)
+```
+
+
+Get a plot to work with - copy from Q1;
+```{r}
+revenue <- CodeClanData::qb_revenue_breakdown %>% janitor::clean_names()
+monthly_sales <- CodeClanData::qb_monthly_sales %>% janitor::clean_names()
+competitors <- CodeClanData::qb_competitors %>% janitor::clean_names()
+device <- CodeClanData::qb_device_data %>% janitor::clean_names()
+```
+
+
+```{r}
+revenue  %>% 
+  ggplot() +
+  aes(x = year, y = revenue, fill = product) + 
+  geom_col(colour = "black") + 
+  labs(title = "Sources of Revenue: 2018 - 2019") +
+  theme_bw(base_size = 12)
+```
+
+# Changing overall themes;
+
+Only one theme can be active at a time - R will use the last theme entered.
+
+```{r}
+revenue %>% 
+  ggplot() +
+  aes(x = year, y = revenue, fill = product) + 
+  geom_col(colour = "black") + 
+  labs(title = "Sources of Revenue: 2018 - 2019") +
+  theme_bw(base_size = 12) +              # this thee will be superseded by the next line...
+  theme_minimal(base_size = 12) +         # which can further be modified with specific changes below...
+  theme(panel.grid.major = element_line(colour = "black"),
+        axis.line.y = element_line())
+```
+
+# To apply a custom colour palette;
+
+```{r}
+col_scheme <- c("#E89FE9", "#50434F", "#B6A7B5", "#F9A472", "#BD7040")
+
+
+revenue %>% 
+  ggplot() +
+  aes(x = year, y = revenue, fill = product) + 
+  geom_col(colour = "black") + 
+  labs(title = "Sources of Revenue: 2018 - 2019") +
+  theme_bw(base_size = 12) + 
+  scale_fill_manual(values = col_scheme) # style setup last in sequence
+```
+
