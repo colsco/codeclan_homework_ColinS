@@ -1,0 +1,52 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Setups for Shiny plots
+
+```{r}
+library(tidyverse)
+library(scales)
+```
+
+```{r}
+
+ whisky <- CodeClanData::whisky %>% janitor::clean_names()
+
+
+```
+
+
+```{r}
+whisky_capacity <- whisky %>% 
+  group_by(owner) %>% 
+  summarise(total_capacity = sum(capacity))
+```
+
+
+
+
+```{r}
+whisky_capacity %>% 
+  filter(owner == "Diageo") %>% 
+  ggplot() +
+  aes(x = reorder(owner, total_capacity), y = total_capacity) +
+  geom_col(colour = "goldenrod3", fill = "lightgoldenrod1", width = 0.3) +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
+  labs(title = "Total Whisky Processing Capacity by Owner",
+       x = "Distillery Owner",
+       y = "Processing Capacity (litres)"
+       ) +
+  theme(axis.title.x = element_text(hjust = 1))
+
+```
+
+```{r}
+whisky %>% 
+  filter(owner == "Diageo") %>% 
+  summarise(distillery)
+```
+
