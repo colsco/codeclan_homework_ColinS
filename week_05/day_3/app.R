@@ -1,7 +1,6 @@
 library(shiny)
 library(tidyverse)
 library(shinythemes)
-library(bslib)
 
 
  whisky <- CodeClanData::whisky %>% janitor::clean_names()
@@ -68,7 +67,6 @@ server <- function(input, output) {
             ggplot() +
             aes(x = reorder(owner, total_capacity), y = total_capacity) +
             geom_col(colour = "goldenrod3", fill = "lightgoldenrod1", width = 0.3) +
-            coord_flip() +
             theme_classic(base_size = 18) +
             scale_y_continuous(labels = function(x) format(x, scientific = FALSE)) +
             labs(title = "Total Whisky Capacity",

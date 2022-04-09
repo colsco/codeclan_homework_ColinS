@@ -1,0 +1,60 @@
+#
+# This is a Shiny web application. You can run the application by clicking
+# the 'Run App' button above.
+#
+# Find out more about building applications with Shiny here:
+#
+#    http://shiny.rstudio.com/
+#
+
+library(shiny)
+library(tidyverse)
+library(shinyWidgets)
+library(shinythemes)
+inflation <- CodeClanData::inflation4
+
+# Define UI for application that draws a histogram
+ui <- fluidPage(
+  titlePanel("Inflation in UK, France, Germany & Spain"),
+  fluidRow(
+    column(12, 
+           plotOutput("yearly_inflation", click = "plot_click"))
+  ),
+    column(5,
+           tags$h5("        Click on the graph above to comapre inflation rates by year"),
+           plotOutput("yearly_comparison"))
+           
+  )
+  
+
+
+# Define server logic required to draw a histogram
+server <- function(input, output) {
+  
+  output$yearly_inflation <- renderPlot({ 
+    inflation %>% 
+    ggplot() +
+    aes(x = Year, y = value, colour = variable) +
+    geom_line() +
+    ylab("Inflation (%)") +
+    labs(colour = "Country")
+  })
+  
+  output$yearly_comparison <- renderPlot({ 
+    inflation %>% 
+      filter(Year == round(input$plot_click$x)) %>% 
+      ggplot() +
+      aes(x = variable, y = value, fill = variable) +
+      geom_col()+
+      xlab(paste("inflation during", round(input$plot_click$x))) +
+      ylab("percent increase")+
+      labs(fill = "Country")
+  })
+  # output$info <- renderText({
+  #   paste0("x=", round(input$plot_click$x))
+  # })
+  
+}
+
+
+shinyApp(ui = ui, server = server)

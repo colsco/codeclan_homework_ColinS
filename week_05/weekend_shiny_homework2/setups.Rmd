@@ -1,0 +1,74 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This .Rmd file is used as a sketchpad for setting up the basic parameters for 
+plots used in the RShiny app.
+
+
+```{r}
+library(tidyverse)
+library(CodeClanData)
+```
+
+```{r}
+game_sales %>% 
+  distinct(developer)
+```
+
+```{r}
+game_sales %>% 
+  filter(publisher == "EA" | 
+           publisher == "Nintendo" | 
+           publisher == "Ubisoft") %>% 
+  filter(genre == "Sports"| 
+           genre == "Racing" | 
+           genre == "Platform") %>% 
+  ggplot() +
+  aes(x = year_of_release, 
+      y = sales, 
+      fill = publisher) +
+  geom_col() +
+  labs(title = "Sales per Year per Developer",
+       x = "\nGame Release Year",
+       y = "Annual Sales ($M)\n",
+       fill = NULL) +
+  theme_minimal() + 
+  scale_fill_brewer(palette = "Oranges")
+```
+
+```{r}
+game_sales %>% 
+  filter(developer == "EA" | 
+           developer == "Nintendo" | 
+           developer == "Ubisoft") %>% 
+  ggplot() +
+  aes(x = genre, 
+      y = sales, 
+      fill = developer) +
+  geom_col() +
+  labs(title = "Sales per Genre per Developer",
+       x = "\nGame Genre",
+       y = "Annual Sales ($M)\n",
+       fill = NULL) +
+  theme_minimal() + 
+  scale_fill_brewer(palette = "Oranges") +
+  theme(axis.text.x = element_text (angle = 90, hjust = 1, vjust = 0.1))
+```
+
+
+```{r}
+game_sales %>% 
+#  filter(platform == "PS3" | platform == "PS4" | platform == "XOne") %>% 
+  ggplot() +
+  aes(x = platform, y = user_score) +
+  geom_boxplot(fill = "Chocolate1") +
+  labs(title = "User Scores per Console Type",
+       x = "\nConsole Type",
+       y = "User Score\n",
+       fill = NULL) +
+  theme_minimal() 
+  
+```
+
