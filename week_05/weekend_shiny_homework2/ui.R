@@ -5,25 +5,22 @@ library(CodeClanData)
 library(bslib)
 library(showtext) 
 
-# Set up custom theme parameters (mainly to reduce font size)
-my_theme <- bs_theme(bootswatch = "materia",
-                     base_font = font_google("Righteous"),
-                     font_scale = 0.9)
+# Set up custom theme parameters (to adjust font) ----
+my_theme <- bs_theme(bootswatch = "sandstone",
+                     base_font = font_google("Manrope"),
+                     font_scale = 0.85)
 
 ui <- fluidPage(
     
-    # Pass theme object to UI function
+    # Pass theme object to UI function ----
     theme = my_theme,
-    
-    #   theme = bs_theme(version = 5, bootswatch = "materia"),
-    #   theme = shinytheme("lumen"),
     
     # Title Bar + Image ----    
     
     titlePanel(title = div(img(src="controller.png", 
                                height = 50, 
                                width = 77), 
-                           "Global Game Sales")
+                           tags$b("Global Game Sales"))
     ),
     
     # Sidebar Setup ----
@@ -65,8 +62,8 @@ ui <- fluidPage(
                 ),
                 tabPanel("Data",
                          dataTableOutput("table_output",
-                                         width = "80%",
-                                         height = "80%")
+                                         width = "60%",
+                                         height = "60%")
                 ),
                 tabPanel("Further Info",
                          HTML("<br>", "<br>"),
@@ -113,6 +110,5 @@ ui <- fluidPage(
         )
     )
 )
-    
-    
-    
+
+

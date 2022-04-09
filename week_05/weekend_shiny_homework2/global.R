@@ -24,10 +24,12 @@ make_year_plot <- function(chosen_data){
 }
 
 # Sales by Year by Publisher ----
-# The year_plot will allow the user to select one or more software houses and
-# view a plot of their annual sales within the data set.  In conjunction with
-# the other dashboard selections they should be able to see how each software 
-# house performed in each year across both game genres and console platforms.
+# The year_plot will allow the user to select one or more software publishers, 
+# genres and consoles to view a plot of their annual sales within the boundaries 
+# set by the data and their chosen parameters.  
+
+# By using the dashboard selections they should be able to see how each software 
+# publisher performed every year by both game genres and console type.
 
 
 make_genre_plot <- function(chosen_data){
@@ -47,8 +49,8 @@ make_genre_plot <- function(chosen_data){
 
 # User Scores by Console ----
 # The console plot provides the user with an overview of users' scores per genres,
-# software houses and consoles selected.  This allows a high level "real world" 
-# analysis of how well different game genres translate onto various consoles by
+# software publishers and consoles selected.  This allows a high level "real world" 
+# picture of how well different game genres translate onto various consoles by
 # different creators.  It also shows the console types where individual software 
 # houses may have strengths or weaknesses within the confines of our data set.
 
