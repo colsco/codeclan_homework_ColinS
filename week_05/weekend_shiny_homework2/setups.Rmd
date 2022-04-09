@@ -72,3 +72,10 @@ game_sales %>%
   
 ```
 
+```{r}
+game_sales %>% 
+  select(publisher) %>% 
+  group_by(publisher) %>% 
+  summarise()
+```
+

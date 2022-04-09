@@ -46,11 +46,11 @@ make_genre_plot <- function(chosen_data){
 }
 
 # User Scores by Console ----
-# The console plot provides the user with an overview of users' scores per genre,
-# software house and console.  This allows a high level "real world" analysis of 
-# how well different game genres translate onto various consoles.  It may also 
-# highlight the console types where individual software houses have strengths or
-# weaknesses.
+# The console plot provides the user with an overview of users' scores per genres,
+# software houses and consoles selected.  This allows a high level "real world" 
+# analysis of how well different game genres translate onto various consoles by
+# different creators.  It also shows the console types where individual software 
+# houses may have strengths or weaknesses within the confines of our data set.
 
 make_console_plot <- function(chosen_data){
   ggplot(chosen_data)+
@@ -63,3 +63,4 @@ make_console_plot <- function(chosen_data){
     theme_minimal() +
     theme(plot.title = element_text(face = "bold"))
 }
+

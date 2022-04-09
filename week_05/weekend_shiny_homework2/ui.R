@@ -54,8 +54,49 @@ ui <- fluidPage(
                 ),
                 tabPanel("Data",
                          dataTableOutput("table_output")
-                )
+                ),
+                tabPanel("Further Info",
+                         HTML("<br>", "<br>"),
+                         tags$h3("Publisher Websites"),
+                         HTML("<br>"),
+                         tags$a("Activision", 
+                                href = "https://www.activision.com/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Capcom", 
+                                href = "https://capcom-europe.com/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Codemasters", 
+                                href = "https://www.codemasters.com/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Electronic Arts", 
+                                href = "https://www.ea.com/en-gb"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Konami Digital Entertainment", 
+                                href = "https://www.konami.com/en/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Midway Games", 
+                                href = "https://warnerbrosgames.com/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Nintendo", 
+                                href = "https://www.nintendo.co.uk/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Sony Computer Entertainment", 
+                                href = "https://www.sie.com/en/index.html"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Take-Two Interactive", 
+                                href = "https://www.take2games.com/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Tecmo Koei", 
+                                href = "https://www.koeitecmoeurope.com/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Ubisoft", 
+                                href = "https://www.ubisoft.com/en-gb/"),
+                         HTML("<br>", "<br>"),
+                         tags$a("Warner Bros. Interactive Entertainment", 
+                                href = "https://warnerbrosgames.com/"),
+                         
+                )					
             )
         )
     )
-)
+)  
