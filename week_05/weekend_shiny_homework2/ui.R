@@ -2,10 +2,21 @@ library(shiny)
 library(shinythemes)
 library(DT)
 library(CodeClanData)
+library(bslib)
+library(showtext) 
+
+# Set up custom theme parameters (mainly to reduce font size)
+my_theme <- bs_theme(bootswatch = "materia",
+                     base_font = font_google("Righteous"),
+                     font_scale = 0.9)
 
 ui <- fluidPage(
     
-    theme = shinytheme("lumen"),
+    # Pass theme object to UI function
+    theme = my_theme,
+    
+    #   theme = bs_theme(version = 5, bootswatch = "materia"),
+    #   theme = shinytheme("lumen"),
     
     # Title Bar + Image ----    
     
@@ -53,7 +64,9 @@ ui <- fluidPage(
                          )
                 ),
                 tabPanel("Data",
-                         dataTableOutput("table_output")
+                         dataTableOutput("table_output",
+                                         width = "80%",
+                                         height = "80%")
                 ),
                 tabPanel("Further Info",
                          HTML("<br>", "<br>"),
@@ -61,37 +74,37 @@ ui <- fluidPage(
                          HTML("<br>"),
                          tags$a("Activision", 
                                 href = "https://www.activision.com/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Capcom", 
                                 href = "https://capcom-europe.com/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Codemasters", 
                                 href = "https://www.codemasters.com/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Electronic Arts", 
                                 href = "https://www.ea.com/en-gb"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Konami Digital Entertainment", 
                                 href = "https://www.konami.com/en/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Midway Games", 
                                 href = "https://warnerbrosgames.com/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Nintendo", 
                                 href = "https://www.nintendo.co.uk/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Sony Computer Entertainment", 
                                 href = "https://www.sie.com/en/index.html"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Take-Two Interactive", 
                                 href = "https://www.take2games.com/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Tecmo Koei", 
                                 href = "https://www.koeitecmoeurope.com/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Ubisoft", 
                                 href = "https://www.ubisoft.com/en-gb/"),
-                         HTML("<br>", "<br>"),
+                         HTML("<br>"),
                          tags$a("Warner Bros. Interactive Entertainment", 
                                 href = "https://warnerbrosgames.com/"),
                          
@@ -99,4 +112,7 @@ ui <- fluidPage(
             )
         )
     )
-)  
+)
+    
+    
+    

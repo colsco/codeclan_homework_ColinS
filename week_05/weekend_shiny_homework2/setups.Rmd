@@ -79,3 +79,7 @@ game_sales %>%
   summarise()
 ```
 
+```{r}
+bootswatch_themes(version = version_default(), full_path = FALSE)
+```
+
