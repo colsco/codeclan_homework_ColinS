@@ -1,0 +1,256 @@
+---
+title: "Homework Week 6 Day 1"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+```{r, warning=FALSE, message=FALSE}
+library(gtools)
+library(prob)
+library(tidyverse)
+library(here)
+library(janitor)
+
+here::here()
+```
+
+
+```{r}
+
+titanic <- read_csv(here("data/titanic.csv"))
+titanic
+
+```
+
+```{r}
+titanic %>% 
+  distinct(class)
+```
+
+First create a new column to indicate who are crew and who are passengers;
+
+```{r}
+titanic <- titanic %>% 
+  mutate(crew = class != "1st" & class != "2nd" & class != "3rd")
+
+```
+
+Determine the total number of crew:
+
+```{r}
+total_crew <- titanic %>%
+  filter(crew == TRUE) %>%
+  summarise(n())
+total_crew
+```
+Thre were 890 crew.  How many survivors among them?
+
+```{r}
+total_crew_survived <- titanic %>%
+  filter(crew == TRUE) %>% 
+  filter(survived == "yes") %>%
+  summarise(crew_surv = n())
+total_crew_survived
+```
+
+So the proportion of survivors among the crew was:
+```{r}
+total_crew_survived / total_crew
+```
+ 
+ Similarly for passengers;
+ 
+ Determine the total number of passengers:
+
+```{r}
+total_pasngr <- titanic %>%
+  filter(crew != TRUE) %>%
+  summarise(n())
+total_pasngr
+```
+There were 1317 passengers.  How many survivors among them?
+
+```{r}
+total_pasngr_survived <- titanic %>%
+  filter(crew != TRUE) %>% 
+  filter(survived == "yes") %>%
+  summarise(pasngr_surv = n())
+total_pasngr_survived
+```
+
+So the proportion of survivors among the crew was:
+```{r}
+total_pasngr_survived / total_pasngr
+```
+
+So the proportion of survivors among the crew was 0.24.
+
+The proportion of survivors among the passengers was 0.38.
+
+**So passengers were more likely to have survived.**
+
+# Question 1.
+If I roll a six-sided dice once, what is the probability of getting a number less than 5?
+
+There are six possible outcomes of a single dice roll;
+
+```{r}
+rolldie(1)
+```
+$$
+probability(event) = (number(event outcomes) / number(all outcomes))
+$$
+The number of event outcomes if the number is to be < 5 is 4: {1, 2, 3, 4}
+
+so the probability is
+```{r}
+4 / 6
+```
+
+
+# Question 2.
+How many outcomes are there in the sample space of an experiment in which we toss three dice?
+
+```{r}
+rolldie(3)
+```
+
+**There are 216 possible outcomes.**
+
+
+# Question 3.
+In an experiment where we roll four dice:
+
+ * how many outcomes are in the event where the total of the four dice equals 5, 6 
+   or 7)?
+ * what is the probability of this event?
+ * what assumptions do we apply in answering part ii?
+
+
+```{r}
+roll_four <- rolldie(4) %>% 
+  # add a column containing the sum of each row
+  mutate(row_total = rowSums(.)) %>%   
+  # filter for the desired outcomes
+  filter(row_total == 5 | row_total == 6 | row_total == 7) %>% 
+  # then count how many rows meet these requirements
+  summarise(n())
+roll_four
+```
+
+**There are 34 outcomes where the total of the four dice is 5, 6, or 7.**
+
+The total number of possible outcomes is;
+
+```{r}
+rolldie(4) %>% 
+  summarise(n())
+```
+
+**There are 1296 possible outcomes and we're interested in 34 of them, so the** 
+**probability is;**
+
+```{r}
+34 / 1296
+```
+**Assuming we don't include any repeats.**
+
+
+# Question 4.
+Five chairs are placed in a row in a room, along with five people of differing height. The people sit down randomly on the chairs. What is the probability that they sit in order of decreasing height, left to right?
+
+```{r}
+permutations(5, 5)
+```
+
+There are 120 permutations, of which only one is correct.  So the probability is;
+
+```{r}
+1 / 120
+```
+
+# Question 5.
+I roll six dice:
+
+ * what is the probability I see the numbers 6, 5, 4, 3, 2 and 1 in order on the 
+   dice, left to right?
+ * what is the probability I see one each of the numbers 6, 5, 4, 3, 2 and 1 on the 
+   dice regardless of order?
+
+Hint
+Have a look at the isin() function in the prob package. For example, to filter all rows containing 6, 1, 2 in that order, you could use isin(., c(6, 1, 2), ordered = TRUE)
+
+```{r}
+roll_six <- rolldie(6)
+```
+
+**Rolling six dice gives 46656 possible outcomes, so the probability of seeing**
+**one specific outcome is;**
+```{r}
+
+options(scipen = 999) # turn off scientific notation...
+
+1 / 46656
+```
+```{r}
+dim(permutations(6, 6))
+```
+**There are 720 possible combinations of {1, 2, 3, 4, 5, 6}, so the probability of 
+having any one of them is;**
+
+```{r}
+720 / 46656
+```
+
+
+
+
+# Question 6.
+If I draw a single card from a 52-card deck, and it is black, what is the 
+probability that its suit is spades?
+
+In a 52-card deck, 26 cards are black.  Of those 26, 13 are Spades and 13 are 
+Clubs.
+
+**So if we pull a black card, the probability of it being a spade is;**
+```{r}
+13 / 26
+```
+Confirm in R;
+
+
+```{r}
+deck <- cards()
+```
+
+```{r}
+deck <- deck %>%
+  mutate(black_card = if_else(suit == "Club" | suit =="Spade",
+                              as.logical(TRUE),
+                              as.logical(FALSE)))
+```
+
+```{r}
+deck_margin <- deck %>% 
+  tabyl(suit, black_card) %>% 
+  adorn_percentages(denominator = "all") %>% 
+  adorn_totals(where = c("row", "col")) %>%    # note you have to adorn totals before title!
+  adorn_title(col_name = "Is Black Suit")   # otherwise you get an error.
+deck_margin
+```
+**The probability of being a spade in the whole pack;**
+
+```{r}
+deck %>% 
+  summarise(prob = sum(suit == "Spade")/n())
+```
+**The probability of a black card being a spade;**
+
+```{r}
+deck %>% 
+  filter(black_card == TRUE) %>% 
+  summarise(prob = sum(suit == "Spade")/n())
+```
+
