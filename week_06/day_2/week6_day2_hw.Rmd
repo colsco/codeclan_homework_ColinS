@@ -1,0 +1,180 @@
+---
+title: "Week 6 Day 2 Homework"
+output:
+  html_document:
+    df_print: paged
+---
+```{r, message=FALSE, warning=FALSE}
+library(stats)
+library(janitor)
+library(here)
+library(tidyverse)
+here::here()
+```
+# 1 MVP
+
+## Question 1.
+Load the data, `clean_names()` and explore it.
+
+
+```{r}
+phones <- read_csv(here("data/20190928-items.csv")) %>% clean_names()
+```
+
+```{r}
+dim(phones)
+
+```
+The dataset contains 792 observations of 9 variables.
+
+```{r}
+str(phones)
+```
+
+```{r}
+head(phones)
+```
+
+## Question 2.
+Find the brand with the highest numbers of phones in the dataset.
+
+
+
+```{r}
+phones %>%
+  
+  ggplot() +
+  aes(x = brand) %>% 
+  geom_bar(colour = "black", fill = "darkolivegreen4")
+  
+```
+
+**Samsung have the highest number of phones in the data set.**
+
+## Question 3.
+For your top brand, plot the distribution of phone ratings as a probability 
+density, overlaying a fitted normal distribution. Do you think the normal 
+distribution provides a good model of these ratings?
+
+```{r}
+samsung <- phones %>% 
+  filter(brand == "Samsung") 
+samsung
+```
+
+
+The mean rating is 3.5733 and the standard deviation in rating is 0.6847859;
+```{r}
+samsung_stats <- samsung %>% 
+  summarise(num = n(),
+            mean_rating = mean(rating),
+            sd_rating = sd(rating))
+
+samsung_stats
+```
+
+```{r}
+
+
+samsung %>% 
+  ggplot() +
+  aes(x = rating) +
+  geom_histogram(aes(y = ..density..), 
+                 col = "white", 
+                 fill = "darkolivegreen4",
+                 bins = 25) +
+  stat_function(fun = dnorm,
+                args = list(mean = samsung_stats$mean_rating,
+                            sd = samsung_stats$sd_rating),
+                colour = "red")
+  
+
+
+```
+
+
+**On the appearance of the graph alone, the data appears to be a reasonable fit to **
+**the normal distribution.**
+
+## Question 4.
+We can be more quantitative in comparing the distribution of top brand ratings with 
+a normal distribution. You calculated the mean() and sd() of your distribution in 
+an earlier question. Use these values to calculate the proportions of ratings within 
+one-, two- and three standard deviations of the mean. Compare these proportions 
+with those you expect for a normal distribution.
+
+```{r}
+# 1 SD
+samsung %>%
+  dplyr::filter(rating >= samsung_stats$mean_rating - samsung_stats$sd_rating) %>%
+  dplyr::filter(rating <= samsung_stats$mean_rating + samsung_stats$sd_rating) %>%
+  summarise(prop_within_1sd = n() / nrow(samsung))
+```
+**The proportion of data within 1 standard deviation is 0.793.**
+
+```{r}
+# 2 SD
+samsung %>%
+  dplyr::filter(rating >= samsung_stats$mean_rating - 2*(samsung_stats$sd_rating)) %>%
+  dplyr::filter(rating <= samsung_stats$mean_rating + 2*(samsung_stats$sd_rating)) %>%
+  summarise(prop_within_2sd = n() / nrow(samsung))
+```
+
+
+
+**The proportion of data within 2 standard deviations is 0.919.**
+
+```{r}
+# 3 SD
+samsung %>%
+  dplyr::filter(rating >= samsung_stats$mean_rating - 3*(samsung_stats$sd_rating)) %>%
+  dplyr::filter(rating <= samsung_stats$mean_rating + 3*(samsung_stats$sd_rating)) %>%
+  summarise(prop_within_3sd = n() / nrow(samsung))
+```
+
+**The proportion of data within 3 standard deviations is 0.980.**
+
+The "textbook" normal distribution has standard deviation boundaries as follows;
+
+```{r}
+100 * (pnorm(q = 1) - pnorm(q = -1)) # 1 SD
+100 * (pnorm(q = 2) - pnorm(q = -2)) # 2 SD
+100 * (pnorm(q = 3) - pnorm(q = -3)) # 3 SD
+
+```
+
+So to summarise;
+
+|SD |Normal Dist. |Samsung Dist. |
+|----|----|----|
+| 1 | 0.683 | 0.793 |
+| 2 | 0.954 | 0.919 |
+| 3 | 0.997 | 0.980 |
+
+**So overall our data follows a normal distribution within +/- 1 standard deviation,**
+**but drifts marginally outside the definition of a normal distribution beyond this.**
+
+
+# 2 Extension
+Investigate the use of the `qqnorm()` plot in R to determine whether data is 
+normally distributed. What is a ‘quantile-quantile plot’? What do we expect to 
+see in a qqnorm() plot if data is nearly normally distributed?
+
+
+
+```{r}
+qqnorm(samsung$rating)
+qqline(samsung$rating)
+```
+
+A quantile - quantile plot is a visual representation of the quantiles of a data 
+set plotted against the quantiles of a normal distribution.  If the data sample in 
+question is also normal then the expected plot would show a line of points in a 
+straight diagonal line.
+
+The data from the Samsung ratings shown on the plot above do not completely follow 
+the straight line, thereby given further indication that the data is not totally 
+normally distributed.
+
+The disadvantage of QQ plots is that like the normal distribution overlaid on a 
+histogram, they are subjective and dependent on interpretation.
