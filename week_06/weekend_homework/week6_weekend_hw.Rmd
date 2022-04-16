@@ -1,0 +1,523 @@
+---
+title: "Hypothesis tests & probability - homework"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    css: ../../../styles.css
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align = 'center')
+```
+
+<hr>
+
+# MVP
+
+## Hypothesis testing - practical
+
+You work for an animal conservation organisation and are looking to do some 
+investigating into some of the animals to provide evidence for some projects you 
+are looking to run. 
+
+In this homework we'll use the `msleep` data set provided in the `ggplot` package. 
+It concerns the sleeping patterns of various types of mammal.
+
+```{r, message = FALSE, warning=FALSE}
+library(infer)
+library(tidyverse)
+library(here)
+
+here::here()
+
+data(msleep)
+```
+
+<br>
+
+**Question 1.**  
+Explore the dataset and familiarise yourself with it.
+
+```{r}
+sleep <- ggplot2::msleep
+sleep
+```
+```{r}
+glimpse(sleep)
+```
+The sleep dataset consists of 83 observations of 11 variables, split between
+character and numeric variable types.
+
+<br>
+
+**Question 2.**  
+Jabberwockies sleep for around 7 hours a night, on average. Perform an appropriate 
+statistical test to determine whether the mean `sleep_total` in the sampled population 
+of animal types differs from the typical value for jabberwockies.
+
+```{r}
+sleep %>% 
+  summarise(sum(is.na(sleep_total)))
+```
+There are no NAs in the sleep_total column to influence the mean calculation.
+
+The hypotheses for this test are;
+$$
+H_0: \mu_{sample} - 7 = 0
+$$
+$$
+H_1: \mu_{sample} - 7 \neq 0
+$$
+
+
+
+```{r}
+observed_stat <- sleep %>%
+  summarise(mean_sleep = mean(sleep_total))
+sleep_diff <- observed_stat - 7
+sleep_diff
+```
+The mean sleep value of all animals in the dataset is different from the mean
+sleep for Jabberwockies.  Is the difference significant?
+
+Set α = 0.05.
+
+The mean sleep of all animals calculated above is our observed statistic.
+
+Assume the null hypothesis is true and generate a simulated null distribution 
+by bootstrapping;
+```{r}
+null_distribution <- sleep %>% 
+  specify(response = sleep_total) %>% 
+  hypothesize(null = "point", mu = 7) %>% 
+  generate(reps = 10000, type = "bootstrap") %>% 
+  calculate(stat = "mean")
+```
+
+```{r}
+null_distribution %>% 
+  visualise() +
+  shade_p_value(obs_stat = observed_stat$mean_sleep, direction = "both")
+```
+So there does appear to be a difference between Jabberwockies' mean sleep time
+and all the other sampled animals.  What's the p-value;
+```{r}
+p_value <- null_distribution %>% 
+  get_p_value(obs_stat = observed_stat$mean_sleep, direction = "both")
+p_value
+```
+
+### From this it can be said that in the context of our dataset we can reject the null
+### hypothesis, i.e. H0 is not true in this case and Jabberwockies' mean sleep is 
+### significantly different to the mean sleep of all the other animals in the dataset.
+
+
+
+<br>
+
+**Question 3.**  
+Perform an appropriate statistical test to determine whether omnivores sleep for 
+significantly longer than herbivores, on average.
+
+Set α = 0.05.
+
+In this case there are two independent means, so the hypotheses will be;
+
+$$
+H_0: \mu_{omni} - \mu_{herbi} <= 0
+$$
+$$
+H_1: \mu_{omni} - \mu_{herbi} > 0
+$$
+
+
+What does this data look like;
+
+```{r}
+sleep %>% 
+  filter(vore == "omni" | vore == "herbi") %>% 
+  ggplot() +
+  aes(x = vore, y = sleep_total) +
+  stat_boxplot(geom = "errorbar", width = 0.25) +
+  geom_boxplot(show.legend = FALSE) +
+  theme_bw() +
+  labs(title = "Distribution of Sleep Data for Ominvores and Herbivores") +
+  theme(title = element_text(face = "bold"))
+```
+
+Herbivore sleep data looks like it is reasonably "normal", but omnivores look
+right-skewed due to outliers.
+
+It's already been established that there are no NAs in sleep_total, so it should
+be possible to work out an observed stat using difference in medians to avoid the 
+right-skew of omnivores affecting the mean.
+
+```{r}
+observed_stat <- sleep %>% 
+  filter(vore == "herbi" | vore == "omni") %>% 
+  specify(sleep_total ~ vore) %>% 
+  calculate("diff in medians", order = c("omni", "herbi"))
+observed_stat
+
+```
+
+Generate the null distribution;
+
+```{r}
+null_distribution <- sleep %>% 
+  filter(vore == "herbi" | vore == "omni") %>% 
+  specify(sleep_total ~ vore) %>% 
+  hypothesize(null = "independence") %>% 
+  generate(reps = 10000, type = "permute") %>% 
+  calculate(stat = "diff in means", order = c("omni", "herbi"))
+null_distribution
+```
+```{r}
+null_distribution %>% 
+  visualise()
+```
+Now overlay the observed statistic;
+
+```{r}
+null_distribution %>%
+  visualise() +
+  shade_p_value(obs_stat = observed_stat$stat, direction = "right") 
+# direction = right because H1 is "greater than"
+```
+And calculate the P-value;
+```{r}
+p_value <- null_distribution %>%
+  get_p_value(obs_stat = observed_stat$stat, direction = "right")
+p_value
+```
+
+
+### This result is greater than the confidence level α = 0.05, so the analysis
+### fails to disprove H0.  That means that we cannot say that omnivores sleep 
+### significantly longer on average than herbivores.
+
+<br>
+
+**Question 4. **
+Perform an appropriate statistical test to determine whether the proportion of 
+domesticated animal types in the population of animal types is greater than $5\%$.
+<br>
+```{r}
+sleep_dom <- sleep %>% 
+  mutate(is_domestic = if_else(conservation == "domesticated", 
+                               "yes", 
+                               "no"),
+         .after = conservation)
+```
+
+This analysis will be a comparison of one proportion against a fixed value (5%).
+
+Set α = 0.05.
+
+The hypotheses will be;
+$$
+H_0: \pi_{domestic} <= 0.05
+$$
+$$
+H_1: \pi_{domestic} > 0.05
+$$
+
+Do we have to consider NAs?
+```{r}
+sleep_dom %>% 
+  summarise(dom_na = sum(is.na(is_domestic)))
+```
+There are 29 NAs out of 83 rows, but an alternative value can't be easily imputed
+so the NAs should be removed;
+
+```{r}
+sleep_dom <- sleep_dom %>% 
+  filter(!is.na(is_domestic))
+```
+
+
+Set up the null distribution;
+```{r}
+null_distribution <- sleep_dom %>% 
+  specify(response = is_domestic, success = "yes") %>% 
+  hypothesize(null = "point", p = 0.05) %>%   # 0.05 from the original question (5%)
+  generate(reps = 10000, type = "draw") %>% 
+  calculate(stat = "prop")
+null_distribution
+```
+What does this look like;
+```{r}
+null_distribution %>% 
+  visualise() +
+  shade_p_value(obs_stat = prop_dom$prop_dom, direction = "right") 
+# direction = right because H1 is "greater than"
+```
+And the P-value is;
+```{r}
+p_value <- null_distribution %>% 
+  get_p_value(obs_stat = 0.05, direction = "right")
+p_value
+```
+
+### So this gives a p-value higher than 0.05, which means we fail to reject H0.
+### That means with this dataset we cannot say that the proportion of domesticated
+### animals is greater than 0.5%.
+
+
+<hr>
+
+## Hypothesis testing - Defining the Hypothesis 
+
+For the following three business problems write out:
+
+* What kind of test you would use  
+*  $H_0$ and $H_a$ in **both** mathematical notation and in words. 
+* Also state the method you would use to generate the null distribution (bootstrap, permutation or simulation). 
+
+<br>
+
+**Question 1.**  
+You work for a independent coffee shop. The boss tells you that she thinks that around $40\%$ of people in the town (population $30,000$) know of the coffee shop, but you are skeptical of the estimate. You conduct a random survey of $200$ people in the town, asking if respondents are aware of your coffee shop. You want to use the sample to test the hypothesis that $40\%$ or more of the town's population have heard of the coffee shop. 
+
+This would need a *one-sample proportion* test  The comparison would be between 
+the proportion of people in the sample of 200 who knew of the coffee shop against
+the 40% that the boss says know about the shop.  The hypotheses would be;
+
+H0: The proportion of the sample of people surveyed who know about the coffee shop 
+is greater than or equal to 0.40.
+$$
+H_0: \pi_{sample} >= 0.40
+$$
+H1: The proportion of the sample of people surveyed who know about the coffee shop 
+is less than 0.40.
+$$
+H_1: \pi_{sample} < 0.40
+$$
+The null distribution would be generated by simulation.
+
+<br>
+
+**Question 2.**  
+You work for a website design company and have performed an **A/B test** on the position of a banner on a website promoting a particular item. 
+<br><br>
+<div class='emphasis'>
+**A/B testing** 
+A method comparing two versions of a web page, email, flyer or other marketing device against each other to determine which version performs better. As it is essentially a controlled experiment, the design should try to ensure that the groups experiencing both versions of the marketing device are equivalent and representative of the population.
+</div>
+<br><br>
+You selected five days at random last month and then randomly selected $200$ of each sampled day's users into group $A$ and another $200$ of that day's users into group $B$. Group $A$ continued to be shown the banner at the right hand side of the webpage (its usual position) while group $B$ was shown the banner at the top of the page. You monitored each sampled user's interactions with the website, in particular the 'click through rate' (CTR) on the banner, i.e. what proportion of sampled users clicked on the banner. You want to use the sampled data to test the hypothesis that website users overall are more likely to click on the banner if positioned at the top of the page   
+
+The data from this could be analysed using a *two-proportion, independent samples*
+test.  The comparison would be between the proportion of people in group A who 
+clicked the banner and the proportion of people in group B who clicked the 
+banner.
+
+The hypotheses would be:
+
+H0: The proportion of people in group A who clicked the banner is greater than or
+equal to the proportion of people in group B.
+
+$$
+H_0: \pi_A - \pi_B >= 0
+$$
+
+H1: The proportion of people in group A who clicked the banner is less than the 
+proportion of people in group B.
+
+$$
+H_1: \pi_A - \pi_B < 0
+$$
+
+The null distribution would be generated by permutation.
+
+<br>
+
+**Question 3.**  
+You work as an analyst for a car manufacturing company - they have specific standards they must meet for standards and regulation purposes. You have been asked to check the quality control of the manufacture of a particular car part. You have been given data on a sample of $200$ parts produced over the period of a week (the sampled parts were pulled at random from the production line and measured: the factory produced a lot more than $200$ parts that week). The specification of the part stipulates a width of $145\textrm{mm}$, and the manufacturing process is said to have 'drifted' if the mean width of parts differs significantly from $145\textrm{mm}$. You want to use the sampled measurements to test whether the process overall has drifted.     
+
+
+This could be determined using a *one-sample mean* test, comparing he sample mean
+against the specification of 145mm.
+
+The hypotheses would be;
+
+H0: The sample mean is equal to 145mm.
+$$
+H_0: \mu_{sample} = 145\textrm{mm}
+$$
+
+H1: The sample mean is not equal to 145mm.
+$$
+H_1: \mu_{sample} \neq 145\textrm{mm}
+$$
+
+The null distribution would be generated using bootstrap.
+
+
+
+## Hypothesis Testing - Interpreting the results
+
+For the 3 business problems stated above, imagine we performed you got the following p-values (with the given significance levels) write out your interpretation of the results. 
+
+<br>
+
+**Question 1.**  
+
+**Coffee shop problem**. Significance level: 0.05, calculated $p$-value: 0.07
+
+For the given significance level we cannot reject the null hypothesis in this
+experiment.  That means that we cannot say that the proportion of people who
+know about the coffee shop is less than 0.40.
+
+<br>
+
+**Question 2.**  
+
+**Website company problem**. Significance level: 0.01, $p$-value: 0.006
+
+In this case we can reject the null hypothesis, which means that within the 
+confines of our dataset more people clicked the banner when it was at the top
+of the page than clicked on it when it was on the right of the page.
+
+<br>
+
+**Question 3.**  
+
+**Manufacturing company problem**. Significance level: 0.05, $p$-value: 0.55
+
+In this case we fail to reject the null hypothesis, so production can continue.
+
+
+# Extension
+
+## Market Basket Analysis
+
+**Association rule mining** is regularly used by retailers to find associations between products that people purchase, perhaps for an online retailer, the items that people put together in their 'baskets', and in a bricks and mortar retailer, the items purchased together in a single transaction. The aim is to find recurring patterns in the transactions which the retailer can then use to do targeted marketing of items, seeking to increase 'cross sales'. Rules mining of this sort can also be used in other industries beyond retail to identify patterns in data. 
+
+**Market basket analysis (MBA)** uses association rule mining. It looks at the association of items occurring in a **single basket**, and so won't look at your purchases over time, but only items that are purchased together in a single purchase (i.e. a 'basket'). As a good example, you may have seen the 'Frequently Bought Together' section on Amazon (and other sites), which looks at items you've got in your basket and suggests items that other people commonly have in their baskets when they also have these items:
+
+```{r, echo=FALSE,, out.width = '60%', fig.align="center" }
+knitr::include_graphics("images/freq_bought_together.jpeg")
+```
+
+MBA differs from recommendation algorithms because the association rules look only at items bought together in a single purchase, they don't use any characteristics of the purchaser to profile them (e.g. 'Based on purchases by people like you, you may also like...') or how their purchases vary over time. The association rules used for MBA use the probability principles we learned on Monday this week. 
+
+## Association rules 
+
+The rules obtained by MBA have three concepts associated with them, as follows:
+
+**Support**  
+The probability of items in the rule being purchased together:
+
+e.g. $\textrm{sup}(A \rightarrow B) = P(\textrm{A and B being purchased together}) = \frac{\textrm{number of transactions involving A and B}}{\textrm{total number of transactions}}$
+
+Support also has meaning for single items:
+
+e.g. $\textrm{sup}(A) = P(A) = \frac{\textrm{number of transactions involving A}}{\textrm{total number of transactions}}$
+
+**Confidence**  
+The proportion of purchases of $A$ where $B$ has also been purchased:
+
+e.g. $\textrm{conf}(A \rightarrow B) = \frac{\textrm{P(A and B being purchased together)}}{\textrm{P(A being purchased)}}$
+
+**Lift**  
+Increase in sales of $A$ when sold with $B$
+
+$\textrm{lift}(A \rightarrow B) = \frac{\textrm{sup}(A \rightarrow B)}{\textrm{sup}(A) \times \textrm{sup}(B)}$
+
+If $\textrm{sup}(A \rightarrow B) = \textrm{sup}(A) \times \textrm{sup}(B)$ then this means $P(A \textrm{ and } B) = P(A) \times P(B)$. We know from the probability lesson earlier in the week that this means the purchase of $A$ and $B$ are independent events. This may help with our interpretation of lift values:
+
+* $\textrm{lift}(A \rightarrow B) \gt 1$ - items $A$ and $B$ are more likely to be bought together 
+* $\textrm{lift}(A \rightarrow B) = 1$ - no correlation between items $A$ and $B$ being bought together
+* $\textrm{lift}(A \rightarrow B) < 1$ - items $A$ and $B$ are unlikely to be bought together
+
+A and B don't need to be single items, they could be sets of items (itemsets) e.g. A = {TV, DVD player}, B = {TV stand}. 
+
+## Using the rules 
+
+Once we have calculated the rules we can use them to gain insights about items/itemsets. 
+
+For example, if for items $A$ and $B$ the corresponding rule $(A \rightarrow B)$ has a low support but a lift greater than $1$ then we can say that when $A$ is purchased $B$ is often purchased with it (high lift), but such transactions don't happen all that frequently (low support). 
+
+The **apriori algorithm** is often used as a way of selecting 'interesting' rules. It will calculate all the support, confidence and lift values for the item/itemset combinations of your dataset and will return those with support values greater than a pre-defined threshold value set by the user. 
+
+## Homework exercise
+
+Let's load in some transaction data which has details on the items purchased in each transaction (where each transaction is uniquely identified by the `InvoiceNo` variable). 
+
+```{r}
+library(tidyverse)
+transactions <- read_csv("data/online_retail_subset.csv") %>% janitor::clean_names()
+head(transactions, 20)
+```
+
+## Association rules 
+
+For the first section we are interested in the purchase of two particular items:
+
+* item $A$ - 'HEART OF WICKER SMALL' (`StockCode` $22469$) 
+* item $B$ - 'LARGE CAKE TOWEL PINK SPOTS' (`StockCode` $21110$)
+
+**Question 1.**  
+Calculate the support for item $A$ (this will be the support for a single item)
+
+Support(A) = no. transactions involving A / total no. transactions;
+
+```{r}
+transactions %>% 
+  filter(stock_code == "22469") %>% 
+  summarise(suppA = n() / nrow(transactions))
+```
+The support for item A is 0.0037.
+
+**Question 2.**  
+Calculate the support and confidence for rule $(A \rightarrow B)$. 
+
+Support(A -> B) = no. transactions involving A and B / total no. transactions;
+
+Confidence(A -> B) = P(A and B purchased together) / P(A purchased);
+
+
+
+
+**Question 3.**  
+Calculate the lift for $(A \rightarrow B)$
+
+<details>
+<summary>**Hint**</summary>
+You will need to calculate the support for $B$]
+</details>
+
+## Apriori algorithm 
+
+Read up on the `arules` and `arulesViz` packages, which make use of the 'apriori' algorithm http://www.salemmarafi.com/code/market-basket-analysis-with-r/comment-page-1/
+
+Use these packages to play around, applying the apriori algorithm to the `transactions` dataset we have. 
+
+To use the `arules` package we need the data to be a special type of 'transactions' object. We do this by reading in the data using `read.transactions()` function from the `arules` package. We have done this for you below (for more information on this type of transactions object see the helpfile `?transactions`):
+
+```{r, message = FALSE, warning = FALSE}
+library(arules)
+library(arulesViz)
+```
+
+```{r}
+transactions_reformat <- transactions %>%
+  select(InvoiceNo, Description) %>%
+  na.omit()
+
+write_csv(transactions_reformat, "transactions_reformat.csv")
+
+apriori_format <- read.transactions("transactions_reformat.csv", format = "single", sep = ",", header = TRUE, cols = c("InvoiceNo", "Description"))
+
+inspect(head(apriori_format))
+```
+
+Now you're all set to play around with `arules` and `arulesViz`. 
+
+**Warning about run time/memory usage:** if the minimum support is set too low for the dataset, then the algorithm will try to create an extremely large set of itemsets/rules. This will result in very long run times and the process may eventually run out of memory. You can either start by trying a reasonably high support (for this dataset, we would suggest starting at $1%$ and then systematically lower the support if don't see any results). There is also an argument `maxtime` which can be used to prevent long run times (more information on that in the `apriori` user document [here](https://rdrr.io/cran/arules/man/apriori.html)). 
+
