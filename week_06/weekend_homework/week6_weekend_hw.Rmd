@@ -252,8 +252,8 @@ null_distribution
 What does this look like;
 ```{r}
 null_distribution %>% 
-  visualise() +
-  shade_p_value(obs_stat = prop_dom$prop_dom, direction = "right") 
+  visualise(bins = 10) +
+  shade_p_value(obs_stat = 0.05, direction = "right") 
 # direction = right because H1 is "greater than"
 ```
 And the P-value is;
@@ -401,7 +401,7 @@ In this case we fail to reject the null hypothesis, so production can continue.
 **Market basket analysis (MBA)** uses association rule mining. It looks at the association of items occurring in a **single basket**, and so won't look at your purchases over time, but only items that are purchased together in a single purchase (i.e. a 'basket'). As a good example, you may have seen the 'Frequently Bought Together' section on Amazon (and other sites), which looks at items you've got in your basket and suggests items that other people commonly have in their baskets when they also have these items:
 
 ```{r, echo=FALSE,, out.width = '60%', fig.align="center" }
-knitr::include_graphics("images/freq_bought_together.jpeg")
+#knitr::include_graphics("images/freq_bought_together.jpeg")
 ```
 
 MBA differs from recommendation algorithms because the association rules look only at items bought together in a single purchase, they don't use any characteristics of the purchaser to profile them (e.g. 'Based on purchases by people like you, you may also like...') or how their purchases vary over time. The association rules used for MBA use the probability principles we learned on Monday this week. 
@@ -482,7 +482,36 @@ Support(A -> B) = no. transactions involving A and B / total no. transactions;
 Confidence(A -> B) = P(A and B purchased together) / P(A purchased);
 
 
+```{r}
+a_and_b_together <- transactions %>% 
+  select(invoice_no, stock_code) %>% 
+  mutate(is22469 = if_else(stock_code == "22469", 1, 0),
+         is21110 = if_else(stock_code == "21110", 1, 0)) %>% 
+  filter(is22469 == 1 | is21110 == 1) %>% 
+  group_by(invoice_no) %>% 
+  summarise(invoice_no, sum_purchases = sum(is22469, is21110))
 
+a_and_b_together <- a_and_b_together %>% 
+  filter(sum_purchases >= 2)
+
+  
+```
+This returns 14 rows, but each invoice is listed twice, once against "21110"
+and once against "22469", so the number of times two items have been purchased is
+14 rows / 2 = 7.
+
+I realise that this doesn't account for someone buying one item twice rather than
+one of each item, but I've spent a fair amount of time on this and haven't been able 
+to work out how to get around this particular problem.
+
+Anyway - if there are 7 instances of two items being bought, then support(A->B)
+will be 7 / no. rows;
+
+```{r}
+transactions %>% 
+  summarise(sup_a_b = (nrow(a_and_b_together) / 2) / nrow(transactions))
+```
+So the support(A->B) = 0.00023.
 
 **Question 3.**  
 Calculate the lift for $(A \rightarrow B)$
@@ -505,9 +534,9 @@ library(arules)
 library(arulesViz)
 ```
 
-```{r}
+```{r, error=TRUE, message=FALSE, warning=FALSE}
 transactions_reformat <- transactions %>%
-  select(InvoiceNo, Description) %>%
+  select(invoice_no, description) %>%
   na.omit()
 
 write_csv(transactions_reformat, "transactions_reformat.csv")
