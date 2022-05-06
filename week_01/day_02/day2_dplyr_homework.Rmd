@@ -161,7 +161,7 @@ grouped_data_by_prep %>%
 Which is the best type of **coffee** drink (and by 'drink' we mean the combination of `Beverage_category`, `Beverage` and `Beverage_prep`) to get if you're worried about consuming too many calories? 
 
 
-*No joy with this one - I think I need to filter those drinks where the word "coffee" appears in either Beverage_category or Beverage, then find the min(Calories) from that group, but I've been at it for too long now, asked for help on slack over half an hour ago with no replies and I need to switch off before I go to bed.  Colin.*
+*No joy with this one - I think I need to filter those drinks where the word "coffee" appears in either Beverage_category or Beverage, then find the min(Calories) from that group...*
 
 ```{r}
 
