@@ -16,6 +16,7 @@ library(here)
 library(janitor)
 library(GGally)
 library(ggfortify)
+library(mosaic)
 knitr::opts_chunk$set(echo = TRUE, fig.align = 'center')
 
 ```
@@ -36,7 +37,7 @@ here::here()
 
 
 ```{r}
-house_prices <- read_csv(here("week_10/day_2/data/housing_prices.csv")) %>% clean_names()
+  house_prices <- read_csv(here("data/housing_prices.csv")) %>% clean_names()
 house_prices
 ```
 
@@ -95,6 +96,7 @@ house_prices_nobed %>%
   ggplot() +
   aes(x = median_income, y = median_house_value) +
   geom_point() +
+  geom_smooth(method = "lm", se = FALSE, colour = "steelblue") +
   labs(title = "Median House Value v Median Income",
        x = "Median Income",
        y = "Median House Value")
@@ -152,7 +154,7 @@ reasonable.  How do the diagnostics look;
 autoplot(house_model_v2)
 ```
 
-The diagnostics show a mixed result.  The Residuals v Fitted line is close to 0, 
+The diagnostics show fairly poor results.  The Residuals v Fitted line is close to 0, 
 but the data points do not look like they are randomly scattered around 0.
 
 The Normal quantile - quantile plot is on the line in the middle of the data set,
@@ -170,10 +172,48 @@ In summary, this is probably not the best model for this data set.
 8. Try adding an interaction between `log(medium_income)` and your chosen categorical predictor. Do you think this interaction term is statistically justified?
 
 
+"Medium" income?  I'll use median...
+
+```{r}
+house_prices_nobed <- house_prices_nobed %>% 
+  mutate(log_median_income = log10(median_income), .after = "median_income")
+```
+
+I haven't added a categorical predictor so far (categorical wasn't specified in 
+the earlier question) so I'll use ocean proximity;
+
+```{r}
+house_log_model <- lm(median_house_value ~ median_income 
+                      + ocean_proximity 
+                      + log_median_income:ocean_proximity, 
+                     data = house_prices_nobed)
+house_log_model
+  
+```
+
+```{r}
+autoplot(house_log_model)
+```
+The diagnostic plots here are again not great.  The Residuals v Fitted line is 
+close to 0, but the data points do not look like they are randomly scattered 
+around 0.
+
+The Normal quantile - quantile plot is on the line in the middle of the data set,
+but diverges from the line at both ends.
+
+The ideal outcome for the scale-location plot is a band of fixed width above the 
+x-axis, but this is not the case here.
+
+In summary, this is probably not the best model for this data set.
+
 
 <br>
 
 9. Find and plot an appropriate visualisation to show the effect of this interaction
 
 
+```{r}
+plotModel(house_log_model)
+```
 
+This is pretty horrible!
