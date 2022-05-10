@@ -1,0 +1,179 @@
+---
+title: "Homework - features and elements of multiple regression"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    number_sections: true
+    df_print: paged
+    css: ../../../styles.css
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(here)
+library(janitor)
+library(GGally)
+library(ggfortify)
+knitr::opts_chunk$set(echo = TRUE, fig.align = 'center')
+
+```
+
+```{r}
+here::here()
+```
+
+
+
+<hr>
+
+# MVP
+
+<br>
+
+1. Load the `housing_prices.csv` data set and undertake an initial exploration of the data. You will find details on the data set on the relevant [Kaggle page](https://www.kaggle.com/camnugent/california-housing-prices)
+
+
+```{r}
+house_prices <- read_csv(here("week_10/day_2/data/housing_prices.csv")) %>% clean_names()
+house_prices
+```
+
+
+<br>
+
+2. We expect the `total_rooms` of houses to be strongly correlated with `total_bedrooms`. Use `ggpairs()` to investigate correlations between these two variables.
+
+```{r}
+house_prices %>% 
+  select(c(total_rooms, total_bedrooms)) %>% 
+  ggpairs()
+```
+
+
+`ggpairs` shows a strong positive correlation between `total_rooms` and
+`total_bedrooms`, i.e. `total_bedrooms` increases as `total_rooms` increases.
+
+<br> 
+
+3. So, we do find significant correlations. Let's drop `total_bedrooms` from the dataset, and use only `total_rooms` going forward.
+
+```{r}
+house_prices_nobed <- house_prices %>% 
+  select(-total_bedrooms)
+```
+
+
+<br>
+
+4. We are interested in developing a regression model for the `median_house_value` of a house in terms of the possible predictor variables in the dataset. 
+
+  i. Use `ggpairs()` to investigate correlations between `median_house_value` and the predictors (this may take a while to run, don't worry, make coffee or something).
+  
+  
+```{r}
+house_prices_nobed %>% 
+  ggpairs()
+```
+  This resulting plot is horrible to work with, but it looks like there may be 
+  some positive correlation between `median_house_value` and `median_income`.
+
+  ii. Perform further `ggplot` visualisations of any significant correlations you find.
+
+```{r}
+options(scipen = 999) # "turn off" scientific notation...
+
+# The median income and median house value are in different orders of magnitude.
+# According to Kaggle.com the median income is in multiples of $10000, so that
+# can be applied here;
+
+house_prices_nobed <- house_prices_nobed %>% 
+  mutate(median_income = median_income * 10000) 
+  
+house_prices_nobed %>%   
+  ggplot() +
+  aes(x = median_income, y = median_house_value) +
+  geom_point() +
+  labs(title = "Median House Value v Median Income",
+       x = "Median Income",
+       y = "Median House Value")
+```
+
+The ggplot of `median_house_value` v `median_income` confirms that there appears 
+to be a positive correlation effect between the two variables.
+
+
+
+<br>
+
+5. Shortly we may try a regression model to fit the categorical predictor `ocean_proximity`. Investigate the level of `ocean_proximity` predictors. How many dummy variables do you expect to get from it?
+
+
+
+```{r}
+house_prices_nobed %>% 
+  distinct(ocean_proximity)
+```
+
+There are five distinct values for `ocean_proximity`, so I would expect there to
+be four dummy variables (leaving one as the reference).
+    
+<br>
+ 
+6. Start with simple linear regression. Regress `median_house_value` on `median_income` and check the regression diagnostics.
+
+```{r}
+house_model <- lm(median_house_value ~ median_income, data = house_prices_nobed)
+house_model
+```
+
+So the best fit line for these variables would be;
+$${median\_house\_value} = 3.999 * {median\_income} + 45457$$
+<br> 
+
+7. Add another predictor of your choice. Check your assumptions, diagnostics, and interpret the model.
+
+```{r}
+house_model_v2 <- lm(median_house_value ~ median_income + total_rooms, 
+                     data = house_prices_nobed)
+house_model_v2
+```
+
+```{r}
+summary(house_model_v2)
+```
+
+The p-value and Pr(>|t|) are well below 0.05 and the R-squared figure is 
+reasonable.  How do the diagnostics look;
+
+
+```{r}
+autoplot(house_model_v2)
+```
+
+The diagnostics show a mixed result.  The Residuals v Fitted line is close to 0, 
+but the data points do not look like they are randomly scattered around 0.
+
+The Normal quantile - quantile plot is on the line in the middle of the data set,
+but diverges from the line at both ends.
+
+The ideal outcome for the scale-location plot is a band of fixed width above the 
+x-axis, but this is not the case here.
+
+In summary, this is probably not the best model for this data set.
+
+# Extension
+    
+<br>
+
+8. Try adding an interaction between `log(medium_income)` and your chosen categorical predictor. Do you think this interaction term is statistically justified?
+
+
+
+<br>
+
+9. Find and plot an appropriate visualisation to show the effect of this interaction
+
+
+
