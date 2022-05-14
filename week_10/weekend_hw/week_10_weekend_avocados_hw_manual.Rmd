@@ -1,12 +1,19 @@
 ---
-title: "R Notebook"
-output: html_notebook
-editor_options: 
-  chunk_output_type: inline
+title: "Avocado Price Modelling"
+author: Colin Scotland | DE13
+output:
+  html_document:
+    code_folding: hide
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    toc_depth: 4
+  pdf_document:
+    toc: yes
 ---
 
-```{r, echo = FALSE}
-library(tidyverse)
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
 library(ggfortify)
 library(modelr)
 library(GGally)
@@ -14,8 +21,8 @@ library(mosaic)
 library(here)
 library(lubridate)
 library(janitor)
-
-
+library(relaimpo)
+library(tidyverse)
 
 here::here()
 ```
@@ -63,13 +70,13 @@ chance that there's a seasonal element to the price that could be a significant
 factor;
 ```{r}
 avo_train <- avo_train %>% 
-  mutate(month = month(as.POSIXlt(date), label = TRUE, abbr = TRUE))
+  mutate(month = month(as.POSIXlt(date), label = FALSE))
  
 ```
 
 ```{r}
 avo_train %>% 
-  select(month, average_price) %>% 
+  dplyr::select(month, average_price) %>% 
   group_by(month) %>% 
   summarise(mean_price_per_month = mean(average_price)) %>% 
   ggplot() +
@@ -98,7 +105,7 @@ will also be removed.
 
 ```{r}
 avo_train <- avo_train %>% 
-  select(-c(date, region))
+  dplyr::select(-c(date, region))
 ```
 
 
@@ -108,7 +115,7 @@ The `x1` column appears to be an identifier of individual observations and will
 not influence the model, so can be removed safely.
 ```{r}
 avo_train <- avo_train %>% 
-  select(-x1)
+  dplyr::select(-x1)
 ```
 
 
@@ -141,7 +148,7 @@ can be calculated if necessary.
 
 ```{r}
 avo_train <- avo_train %>% 
-  select(-total_bags)
+  dplyr::select(-total_bags)
 ```
 
 `x4046`, `x4225` or `x4770` are Price Lookup Codes:
@@ -214,7 +221,7 @@ This suggests that 37% of the variance in our model could be explained by `type`
 
 Run the diagnostic plots;
 ```{r}
-autoplot(mod1a)
+autoplot(mod1a, alpha = 0.3)
 ```
 
 These look acceptable;
@@ -245,7 +252,7 @@ anova(mod1b)
 ```
 
 ```{r}
-autoplot(mod1b)
+autoplot(mod1b, alpha = 0.3)
 ```
 
 These don't look perfect, but once again the residuals v fitted are spread 
@@ -280,11 +287,19 @@ mod1c <- lm(average_price ~ x4046, data = avo_train)
 
 
 ```{r}
-autoplot(mod1c)
+autoplot(mod1c, alpha = 0.3)
 ```
 
 The diagnostic plots really don't look acceptable.  There are signs of non-normal
-distribution in every plot.
+distribution in every plot.  
+
+------------------------------------------------------------------
+Taking the log of `x4046`returned an error; 
+
+Error in lm.fit(x, y, offset = offset, singular.ok = singular.ok, ...) : 
+NA/NaN/Inf in 'x'
+------------------------------------------------------------------
+
 
 ## mod1d ----
 
@@ -295,7 +310,7 @@ mod1d <- lm(average_price ~ x4225, data = avo_train)
 
 
 ```{r}
-autoplot(mod1d)
+autoplot(mod1d, alpha = 0.3)
 ```
 
 
@@ -333,13 +348,13 @@ Looking at residuals;
 ```{r}
 avo_residuals <- avo_train %>% 
   add_residuals(mod1a) %>% 
-  select(-c(average_price, type))
+  dplyr::select(-c(average_price, type))
 
 avo_residuals_numeric <- avo_residuals %>%
-  select_if(is.numeric)
+  dplyr::select_if(is.numeric)
 
 avo_residuals_nonnumeric <- avo_residuals %>%
-  select_if(function(x) !is.numeric(x))
+  dplyr::select_if(function(x) !is.numeric(x))
 
 avo_residuals_nonnumeric$resid <- avo_residuals$resid
 ```
@@ -353,11 +368,12 @@ ggpairs(avo_residuals_nonnumeric)
 ```
 
 Month(as tried in mod1b) looks like it's the next best against `resid`, although 
-`year` also looks like it might be a factor.  
+`year` also looks like it might be a factor, having the next highest (albeit low)
+correlation coefficient with resid.  
 
 ## mod2a ----
 
-Add month into the model, since the ANOVA etc above did show significance.
+Add month into the model, since the ANOVA above did show significance.
 
 
 ```{r}
@@ -374,7 +390,7 @@ The adjusted R-squared indicates that 43% of the variance in our model could be
 explained by `type` + `month`.
 
 ```{r}
-autoplot(mod2a)
+autoplot(mod2a, alpha = 0.3)
 ```
 
 The diagnostic plots are generally acceptable for this model;
@@ -410,13 +426,13 @@ And look at the residuals again;
 ```{r}
 avo_residuals <- avo_train %>% 
   add_residuals(mod1a) %>% 
-  select(-c(average_price, type, month))
+  dplyr::select(-c(average_price, type, month))
 
 avo_residuals_numeric <- avo_residuals %>%
-  select_if(is.numeric)
+  dplyr::select_if(is.numeric)
 
 avo_residuals_nonnumeric <- avo_residuals %>%
-  select_if(function(x) !is.numeric(x))
+  dplyr::select_if(function(x) !is.numeric(x))
 
 avo_residuals_nonnumeric$resid <- avo_residuals$resid
 ```
@@ -430,9 +446,125 @@ Looking at the correlation against `resid` it doesn't look like there are any
 other very highly significant contributors.  All correlation coefficients are
 below 0.1 in magnitude.
 
-This suggests that the final model for average pricing of avocados is model 2.
+This suggests that the best model for average pricing of avocados is model 2.
 
 $$ average\_price \sim type + month $$
 
-This suggests that the average price of avocados varies as a function of
-the type of avocado and the month of the year.  This seems fairly sensible.
+This indicates that the average price of avocados varies as an approximately
+linear function of the type of avocado and the month of the year.  This seems 
+fairly reasonable.
+
+The analysis also shows that the model can explain around 43% of the variance in 
+avocado average price.
+
+## Model 3: Check for Interactions
+
+The model currently depends on `type` and `month`.  Do they show any interactions?
+
+Separate the residuals;
+```{r}
+avocado_residuals <- avo_train %>% 
+  add_residuals(avo_model2) %>% 
+  dplyr::select(-average_price)
+```
+
+
+Visualise the potential interactions with coplot;
+```{r}
+coplot(average_price ~ type | month, 
+       panel = function(x, y, ...){
+         points(x, y)
+         abline(lm(y ~ x), col = "blue")
+       },
+       data = avo_train, 
+       alpha = 0.3, 
+       columns = 6)
+```
+
+
+
+At first glance it looks like there's no interaction between `type` and `month`. 
+The blue line is pretty constant for all ranges of month.
+
+Check the summary;
+```{r}
+avo_model3 <- lm(average_price ~ type + month + type:month, data = avo_train)
+
+summary(avo_model3)
+```
+
+
+It looks like there is a very small increase in adjusted r-squared when the 
+interaction is included; from 43% to 44%, which would give the best fit model as;
+
+$$ average\_price \sim type + month + type:month $$
+
+
+
+What are the relative importances of the model constituents;
+
+```{r}
+calc.relimp(avo_model3, type = "lmg", rela = TRUE)
+```
+
+
+This shows that 86% of the r-squared value is made up of `type`, 13% is `month`
+and the interaction component only makes up 0.5%.  In the interest of simplicity
+it would probably be safe to remove the interaction, but the significance of this
+could be checked with BIC;
+
+```{r}
+BIC(avo_model2)
+```
+```{r}
+BIC(avo_model3)
+```
+
+Based on the BIC values, avo_model2 would be the best (without interaction):
+
+$$ average\_price \sim type + month $$
+
+
+## Run the Test Set
+
+Now try the test set on the model.  The test set needs to be updated to include
+the month column to allow the model to run;
+```{r}
+avo_test %>% 
+   mutate(month = month(as.POSIXlt(date), label = TRUE, abbr = TRUE),
+          type = as.factor(type),
+         month = as.factor(month))
+```
+
+
+```{r}
+summary(avo_model2)
+```
+
+This gives an adjusted r-squared of 44%, which corresponds well with what the 
+result was for the training set (43%).  The fact that the test set is a better fit also indicates that there's no excessive overfitting.
+
+
+
+## Summary
+
+Through the analysis detailed above the following conclusions can be drawn;
+
+* The data set was tidied in several ways, namely
+    - date was changed from day granularity to month
+    - region was discounted due to insufficient clarification of general regional 
+ areas such as `plains`, `WestTexNewMexico`and `SouthEast`
+* The model was manually developed using a test-train split
+* The best fit model found for the average price of avocados gave an adjusted
+r-squared of 44% with the test data and was defined as;
+
+$$ average\_price \sim type + month $$
+
+* An interaction between `type` and `month` was found, but was very small (0.5% 
+of total r-squared) and was removed after comparing the BIC on models with and
+without the interaction
+* This model was found to perform equally well on the test data as on the training
+data, with no evidence of overfitting
+
+
+

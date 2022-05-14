@@ -18,26 +18,97 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1. I want to predict how well 6 year-olds are going to do in their final school exams. Using the following variables am I likely under-fitting, fitting well or over-fitting? Postcode, gender, reading level, score in maths test, date of birth, family income.
 
+Probably overfitting.  Using all of these predictors suggests a number of
+assumptions have been made;
+* Postcode could change drastically between 6 years old and final school exams
+* Date of birth is unlikely to be important if everyone is of similar age in the 
+data anyway
+* Famly income may also be misleading, because it may also change drastically 
+between 6 years old and final school exam time
+
 
 2. If I have two models, one with an AIC score of 34,902 and the other with an AIC score of 33,559 which model should I use?
+
+Lower AIC scores indicate a better model fit, so the model with score 33559 would
+be the more sensible choice.
 
 
 3. I have two models, the first with: r-squared: 0.44, adjusted r-squared: 0.43. The second with: r-squared: 0.47, adjusted r-squared: 0.41. Which one should I use?
 
+It depends on the models.  R-squared shows goodness of fit when the model is 
+based on a simple linear regression with one predictor, but adjusted r-squared
+is a better measure when there are higher numbers of predictors.
+
+If the models are both simple linear regressions then r-squared is the better
+measure.  Higher numbers correspond to a better fit, so the best simple linear
+regression model would be the second, with r-squared = 0.47.
+
+If the models are more complex and have higher numbers of predictors then the
+first model would be better with an adjusted r-squared of 0.43.
+
+If one model is a simple linear regression and the other is much more complicated
+then other coefficients and diagnostic plots would also have to be considered as
+to how sensible the added complexity is in answering the question that the model
+tries to answer.
+
+
 
 4. I have a model with the following errors: RMSE error on test set: 10.3, RMSE error on training data: 10.4. Do you think this model is over-fitting?
+
+Training sets normally contain more data than test sets.  If the RSME on a training 
+set is larger than a test set then overfitting is unlikely to be the reason.  If
+a model was overfitted then the RSME of the training set would be very low.  When
+new data was brought in (i.e. the test set) then the RMSE would be expected to be
+much higher than the training set, because the model wouldn't fit well to the new 
+data points.
+
+In this example given the closeness of the RMSE it looks like the model is a good 
+fit.
 
 
 5. How does k-fold validation work?
 
+k-fold validation works by generating a number (k) of groups within a data set.
+
+Each group is individually taken out as a test set while the remaining groups
+are used as a training set to develop a model.  The resulting model is then
+tested using the previously assigned test set.  Once a model has been created,
+the statistical summary is retained, then the next 'k' group is removed as the
+test set and the process repeated.  
+
+Once this has been done for all 'k' groups the summary stats for each iteration 
+are compared.
+
 
 6. What is a validation set? When do you need one?
+
+A validation set is a segmented section of a data set that is used to verify the 
+performance of a model, separate from the training and test data.  
+
+It would be used for complex models and in comparing several types of model.  It
+would be used once, after the final model is complete and before moving onto the 
+test set.  The reason is to avoid overfitting to the train and test sets.
 
 
 7. Describe how backwards selection works.
 
+In building a manual model (forwards), predictors are *added* to the null model 
+in order of significance.  
+
+In backwards selection, the model starts with all possible predictors selected
+and the *least* significant predictors are removed from the model.
+
 
 8. Describe how best subset selection works.
+
+Best subset selection analyses all possible combinations of independent predictors
+to find the best fit for a response 'y'.  This is done by;
+
+1. Considering all possible combinations of predictors
+2. Identifying the best model of each size (highest r-squared)
+3. Identifying the best overall model (AIC, BIC)
+
+
 
 
 
