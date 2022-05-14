@@ -1,0 +1,215 @@
+---
+title: "Avocado Price Modelling"
+author: Colin Scotland | DE13
+output:
+  html_document:
+    code_folding: hide
+    theme: cerulean
+    toc: yes
+    toc_float: yes
+    toc_depth: 4
+  pdf_document:
+    toc: yes
+---
+
+```{r, echo = FALSE, warning=FALSE, message=FALSE}
+
+library(ggfortify)
+library(modelr)
+library(GGally)
+library(mosaic)
+library(here)
+library(lubridate)
+library(janitor)
+library(tidyverse)
+library(leaps)
+
+here::here()
+```
+
+```{r}
+avocados <- read_csv(here("1_weekend_homework_part1/data/avocado.csv")) %>% 
+  janitor::clean_names()
+avocados
+```
+
+Check for NAs in the data set;
+
+```{r}
+avocados %>% 
+  summarise(across(.cols = everything(), ~ sum(is.na(.))))
+```
+
+So there are no NAs to consider.
+
+## Make a test set
+
+The data consists of > 18k observations, so there should be plenty of capacity
+to create a test set.  10% of 18k is around 1800 observations, which sounds like
+a reasonable size for a test set.
+
+Make a test index using 10% of the data;
+```{r}
+avocado_row_count <- nrow(avocados)
+
+test_index <- sample(1:avocado_row_count, size = avocado_row_count * 0.1)
+```
+
+Then create the test and train data sets using this index;
+```{r}
+avo_test <- slice(avocados, test_index)
+avo_train <- slice(avocados, -test_index)
+```
+
+
+Adjust date into month only;
+```{r}
+avo_train <- avo_train %>% 
+  mutate(month = month(as.POSIXlt(date), label = FALSE)) %>% 
+  mutate(type = as.factor(type),
+         month = as.factor(month))
+```
+
+Tidy up other unnecessary columns;
+```{r}
+avo_train <- avo_train %>% 
+  select(-c(x1, date, region, total_bags))
+```
+
+
+Start to build forwards using `leaps()`;
+```{r}
+regsubsets_forward <- regsubsets(average_price ~ ., 
+                                 data = avo_train,
+                                 nvmax = 20,
+                                 method = "forward")
+```
+
+
+```{r}
+sum_regsubsets_forward <- summary(regsubsets_forward)
+sum_regsubsets_forward
+```
+
+It looks like the most significant predictors are `type` and `month`, with
+`x4046` and `x4225` also showing some contribution albeit less significantly.
+
+In another view;
+```{r}
+sum_regsubsets_forward$which
+```
+
+
+Visually;
+
+```{r}
+plot(regsubsets_forward, scale = "adjr2")
+```
+
+Visualising this with BIC;
+```{r}
+plot(regsubsets_forward, scale = "bic")
+```
+
+Plot r-squared as a function of number of predictors;
+```{r}
+plot(sum_regsubsets_forward$rsq, type = "b")
+```
+
+
+And compare nummber of predictors to BIC;
+```{r}
+plot(sum_regsubsets_forward$bic, type = "b")
+```
+
+These plots suggest that taking `type` (= 2 values; conventional and organic)
+and `month` (12 variables, Jan - Dec) would give 14 predictors in the context
+of `leaps` model and would give a good balance between simplicity and goodness
+of fit.
+
+The predictors still need to be checked for statistical significance using
+ANOVA, particularly `month`;
+```{r}
+model_no_month <- lm(average_price ~ type, data = avo_train)
+summary(model_no_month)
+```
+
+```{r}
+model_with_month <- lm(average_price ~ type + month, data = avo_train)
+summary(model_with_month)
+```
+
+```{r}
+anova(model_no_month, model_with_month)
+```
+
+The model *with* `month` is statistically significantly better than the model 
+without `month`.  Check the diagnostics;
+
+```{r}
+autoplot(model_with_month, alpha = 0.3)
+```
+
+These look acceptable.
+
+* Residuals v Fitted shows a spread across 0 with a relatively horizontal line
+* Normal Q-Q shows around 75% of points are on the line
+* Scale - Location shows minimal funnelling
+
+## Model
+
+So our final automated model build gives;
+
+$$ average\_price \sim type + month $$
+
+
+
+## Run the Test Set
+
+Perform the same data processing on test as on training;
+
+```{r}
+avo_test <- avo_test %>% 
+   mutate(month = month(as.POSIXlt(date), label = TRUE, abbr = TRUE),
+          type = as.factor(type),
+         month = as.factor(month))
+```
+
+
+```{r}
+avo_model_test <- lm(average_price ~ type + month, data = avo_test)
+```
+
+```{r}
+summary(avo_model_test)
+```
+
+This gives an adjusted r-squared of 45%, which corresponds well with what the 
+result was for the training set (43%).  The fact that the test set is a better fit also indicates that there's no excessive overfitting.
+
+```{r}
+autoplot(avo_model_test, alpha = 0.3)
+```
+
+These plots look acceptable once again, so the final model is;
+
+$$ average\_price \sim type + month $$
+
+## Summary
+
+Through the analysis detailed above the following conclusions can be drawn;
+
+* The data set was tidied in several ways, namely
+    - date was changed from day granularity to month
+    - region was discounted due to insufficient clarification of general regional 
+ areas such as `plains`, `WestTexNewMexico`and `SouthEast`
+* The model was automatically developed using a test-train split and `leaps`
+* The best fit model found for the average price of avocados gave an adjusted
+r-squared of 45% with the test data and was defined as;
+
+$$ average\_price \sim type + month $$
+
+* The addition of more predictors was expected to improve the goodness-of-fit, 
+but only by a very small amount for much more complexity
+* This model was found to perform equally well on the test data as on the training
+data, with no evidence of overfitting

@@ -530,21 +530,35 @@ $$ average\_price \sim type + month $$
 Now try the test set on the model.  The test set needs to be updated to include
 the month column to allow the model to run;
 ```{r}
-avo_test %>% 
-   mutate(month = month(as.POSIXlt(date), label = TRUE, abbr = TRUE),
-          type = as.factor(type),
+avo_test <- avo_test %>% 
+   mutate(month = month(as.POSIXlt(date), label = TRUE, abbr = TRUE)) %>% 
+   mutate(type = as.factor(type),
          month = as.factor(month))
 ```
 
 
 ```{r}
-summary(avo_model2)
+avo_model_test <- lm(average_price ~ type + month, data = avo_test)
 ```
 
-This gives an adjusted r-squared of 44%, which corresponds well with what the 
+```{r}
+summary(avo_model_test)
+```
+
+
+This gives an adjusted r-squared of 45%, which corresponds well with what the 
 result was for the training set (43%).  The fact that the test set is a better fit also indicates that there's no excessive overfitting.
 
+```{r}
+autoplot(avo_model_test, alpha = 0.3)
+```
 
+
+Again these plots look acceptable.
+
+* Residuals v Fitted shows a spread across 0 with a relatively horizontal line
+* Normal Q-Q shows around 75% of points are on the line
+* Scale - Location shows minimal funnelling
 
 ## Summary
 
@@ -556,7 +570,7 @@ Through the analysis detailed above the following conclusions can be drawn;
  areas such as `plains`, `WestTexNewMexico`and `SouthEast`
 * The model was manually developed using a test-train split
 * The best fit model found for the average price of avocados gave an adjusted
-r-squared of 44% with the test data and was defined as;
+r-squared of 45% with the test data and was defined as;
 
 $$ average\_price \sim type + month $$
 
