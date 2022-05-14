@@ -86,14 +86,15 @@ avo_train %>%
 <br><br>
 This plot suggests that there is indeed some seasonality.  It would be worth
 retaining the `month` column to check in the model later, but there's no need to 
-keep the level of detail contained in the `date` column.
+keep the level of detail contained in the `date` column.  Variation by day is 
+too much detail.
 
 #### Regions
 
 Considering `region`, there are several values that are very ambiguous such as 
 `plains`, `WestTexNewMexico`, `SouthEast`.  Although regional variations may be
-a significant factor worthy of inclusion in a model, it would be difficult to rationally separate all of the areas into discrete constituent states.  
-Consequently, region will also be removed.
+a significant factor worthy of inclusion in a model, it would be difficult to rationally separate all of the areas into discrete constituent states, so region 
+will also be removed.
 
 ```{r}
 avo_train <- avo_train %>% 
@@ -135,7 +136,8 @@ So it looks like the supposition:
 is true - R's lack of precision in performing floating point calculations leads
 to rounding errors within +/- 1, which is what is shown in the results.
 
-In conclusion, we can safely remove `total_bags` from the data set.
+In conclusion, we can safely remove `total_bags` from the data set, because this
+can be calculated if necessary.
 
 ```{r}
 avo_train <- avo_train %>% 
@@ -153,6 +155,14 @@ Price Look Up code or PLU or sticker.
 * Large Hass Avocado (~8-10oz avocado) | #4225 Avocado
 * Extra Large Hass Avocado (~10-15oz avocado) | #4770 Avocado
 
+One last change is to set non-numeric variables as factors for processing;
+```{r}
+avo_train <- avo_train %>% 
+  mutate(type = as.factor(type),
+         month = as.factor(month))
+```
+
+
 ## First Predictor
 
 Check the remaining variables for signs of correlation in order to determine
@@ -161,6 +171,9 @@ possible predictors for the model;
 ```{r}
 ggpairs(avo_train)
 ```
+
+
+## mod1a ----
 
 From the plot it appears as though `type` may be an important factor;
 
@@ -179,10 +192,15 @@ avo_train %>%
 `type` is a categorical variable, so should be checked for significance using 
 ANOVA both with and without `type` included;
 ```{r}
-anova(lm(average_price ~ type, data = avo_train))
+anova(lm(average_price ~ . -type, data = avo_train))
 ```
 
-So in isolation, type is statistically significant.  So the first model could be;
+```{r}
+anova(lm(average_price ~ ., data = avo_train))
+```
+
+
+It looks like type *is* statistically significant.  So the first model could be;
 ```{r}
 mod1a <- lm(average_price ~ type, data = avo_train)
 ```
@@ -192,7 +210,7 @@ How does this look;
 summary(mod1a)
 ```
 
-This suggests that 38% of the variance in our model could be explained by `type`.
+This suggests that 37% of the variance in our model could be explained by `type`.
 
 Run the diagnostic plots;
 ```{r}
@@ -206,13 +224,21 @@ These look acceptable;
 * Scale - Location are in a band above the x-axis with only a very slight funnel
 effect evident.
 
+## mod1b ----
 
-At the very start it looked like month might also be a factor due to the 
-seasonality of avocado growth and harvesting;
+At the very start it looked like `month` might also be a significant factor due 
+to the seasonality of avocado growth and harvesting;
 
 ```{r}
 mod1b <- lm(average_price ~ month, data = avo_train)
 ```
+
+Check ANOVA with and without `month`;
+```{r}
+anova(lm(average_price ~ . -month, data = avo_train))
+```
+
+
 
 ```{r}
 anova(mod1b)
@@ -233,6 +259,19 @@ It looks like some of the months have a significant effect on average_price,
 although the overall R-squared is poor.  If they are to be included then *all* 
 months will be included.
 
+Double check significance; run an ANOVA against the null model (intercept only);
+```{r}
+null_model <- lm(average_price ~ 1, data = avo_train)
+month_model <- lm(average_price ~ month, data = avo_train)
+
+anova(null_model, month_model)
+```
+
+So `month` is significant.
+
+
+## mod1c ----
+
 It would make sense that avocado size would impact on price:
 
 ```{r}
@@ -247,6 +286,8 @@ autoplot(mod1c)
 The diagnostic plots really don't look acceptable.  There are signs of non-normal
 distribution in every plot.
 
+## mod1d ----
+
 Try `x4225`;
 ```{r}
 mod1d <- lm(average_price ~ x4225, data = avo_train)
@@ -260,6 +301,9 @@ autoplot(mod1d)
 
 
 This is also unacceptable; try `x4770`
+
+## mod1e ----
+
 ```{r}
 mod1e <- lm(average_price ~ x4770, data = avo_train)
 ```
@@ -272,7 +316,16 @@ autoplot(mod1d)
 
 `x4770` is also unacceptable in isolation.
 
-So type looks like the most promising predictor so far.
+It looks like avocado size *might* be significant based on the ANOVA results
+earlier, but they don't fit the linear model.
+
+## Model 1 ----
+
+So `type` looks like the most promising predictor so far, giving;
+```{r}
+avo_model1 <- lm(average_price ~ type, data = avo_train)
+```
+
 
 ## Second Predictor 
 
@@ -299,8 +352,87 @@ ggpairs(avo_residuals_numeric)
 ggpairs(avo_residuals_nonnumeric)
 ```
 
+Month(as tried in mod1b) looks like it's the next best against `resid`, although 
+`year` also looks like it might be a factor.  
+
+## mod2a ----
+
+Add month into the model, since the ANOVA etc above did show significance.
 
 
+```{r}
+mod2a <- lm(average_price ~ type + month, data = avo_train)
+```
 
 
-**look at week 10 / day 3 / 3_homework/homework_model_building_solution.html**
+```{r}
+summary(mod2a)
+```
+
+
+The adjusted R-squared indicates that 43% of the variance in our model could be 
+explained by `type` + `month`.
+
+```{r}
+autoplot(mod2a)
+```
+
+The diagnostic plots are generally acceptable for this model;
+
+* Fitted v Residuals are spread across 0 with a fairly horizontal line.
+* Q-Q plot shows around 75% of the points are on the line
+* Scale - Location does not show any extreme funnelling effect
+
+How does this compare with using `year` as the second predictor?
+
+## mod2b ----
+
+```{r}
+mod2b <- lm(average_price ~ type + year, data = avo_train)
+```
+
+
+```{r}
+summary(mod2b)
+```
+
+This shows that `year` has less of an effect than `month`.  Make model 2 with 
+`month`;
+
+## Model 2 ----
+
+```{r}
+avo_model2 <- lm(average_price ~ type + month, data = avo_train)
+```
+
+
+And look at the residuals again;
+```{r}
+avo_residuals <- avo_train %>% 
+  add_residuals(mod1a) %>% 
+  select(-c(average_price, type, month))
+
+avo_residuals_numeric <- avo_residuals %>%
+  select_if(is.numeric)
+
+avo_residuals_nonnumeric <- avo_residuals %>%
+  select_if(function(x) !is.numeric(x))
+
+avo_residuals_nonnumeric$resid <- avo_residuals$resid
+```
+
+
+```{r}
+ggpairs((avo_residuals_numeric))
+```
+
+Looking at the correlation against `resid` it doesn't look like there are any 
+other very highly significant contributors.  All correlation coefficients are
+below 0.1 in magnitude.
+
+This suggests that the final model for average pricing of avocados is model 2.
+
+$$ average\_price \sim type + month $$
+
+This suggests that the average price of avocados varies as a function of
+the type of avocado and the month of the year.  This seems fairly sensible.
