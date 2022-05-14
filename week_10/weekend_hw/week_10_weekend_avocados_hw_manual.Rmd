@@ -1,5 +1,5 @@
 ---
-title: "Avocado Price Modelling"
+title: "Avocado Price Manual Modelling"
 author: Colin Scotland | DE13
 output:
   html_document:
