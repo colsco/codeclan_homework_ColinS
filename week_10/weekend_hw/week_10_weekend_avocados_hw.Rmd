@@ -1,0 +1,306 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r, echo = FALSE}
+library(tidyverse)
+library(ggfortify)
+library(modelr)
+library(GGally)
+library(mosaic)
+library(here)
+library(lubridate)
+library(janitor)
+
+
+
+here::here()
+```
+
+```{r}
+avocados <- read_csv(here("1_weekend_homework_part1/data/avocado.csv")) %>% 
+  janitor::clean_names()
+avocados
+```
+
+Check for NAs in the data set;
+
+```{r}
+avocados %>% 
+  summarise(across(.cols = everything(), ~ sum(is.na(.))))
+```
+
+So there are no NAs to consider.
+
+## Make a test set
+
+The data consists of > 18k observations, so there should be plenty of capacity
+to create a test set.  10% of 18k is around 1800 observations, which sounds like
+a reasonable size for a test set.
+
+Make a test index using 10% of the data;
+```{r}
+avocado_row_count <- nrow(avocados)
+
+test_index <- sample(1:avocado_row_count, size = avocado_row_count * 0.1)
+```
+
+Then create the test and train data sets using this index;
+```{r}
+avo_test <- slice(avocados, test_index)
+avo_train <- slice(avocados, -test_index)
+```
+
+## Process the Data
+
+#### Seasonality
+
+The discussion relates to the growth and harvest of a fruit, so there's a good 
+chance that there's a seasonal element to the price that could be a significant 
+factor;
+```{r}
+avo_train <- avo_train %>% 
+  mutate(month = month(as.POSIXlt(date), label = TRUE, abbr = TRUE))
+ 
+```
+
+```{r}
+avo_train %>% 
+  select(month, average_price) %>% 
+  group_by(month) %>% 
+  summarise(mean_price_per_month = mean(average_price)) %>% 
+  ggplot() +
+  aes(x = month, y = mean_price_per_month) +
+  geom_line(group = 1) +
+  geom_point() +
+  labs(title = "Mean Average Avocado Price per Month\nJan 2015 - March 2018",
+       x = "Month",
+       y = "Mean Average Price") +
+  theme_bw() + 
+  theme(title = element_text(face = "bold"))
+```
+
+<br><br>
+This plot suggests that there is indeed some seasonality.  It would be worth
+retaining the `month` column to check in the model later, but there's no need to 
+keep the level of detail contained in the `date` column.
+
+#### Regions
+
+Considering `region`, there are several values that are very ambiguous such as 
+`plains`, `WestTexNewMexico`, `SouthEast`.  Although regional variations may be
+a significant factor worthy of inclusion in a model, it would be difficult to rationally separate all of the areas into discrete constituent states.  
+Consequently, region will also be removed.
+
+```{r}
+avo_train <- avo_train %>% 
+  select(-c(date, region))
+```
+
+
+#### Other Considerations
+
+The `x1` column appears to be an identifier of individual observations and will
+not influence the model, so can be removed safely.
+```{r}
+avo_train <- avo_train %>% 
+  select(-x1)
+```
+
+
+It looks likely that there will be aliases in bag sizes;
+```{r}
+alias(lm(average_price ~ ., data = avo_train))
+```
+
+The alias function shows nothing at this point, but it looks like 
+`total_bags` = `small_bags` + `large_bags` + `x_large_bags` - verify this
+a different way, bearing in mind that R is not a perfect calculator when 
+trying to compare floating point numbers;
+```{r}
+avo_train %>% 
+  mutate(bag_check = 
+           as.integer(total_bags - (small_bags + large_bags + x_large_bags))) %>% 
+  distinct(bag_check)
+```
+
+
+So it looks like the supposition:
+
+`total_bags` = `small_bags` + `large_bags` + `x_large_bags`
+
+is true - R's lack of precision in performing floating point calculations leads
+to rounding errors within +/- 1, which is what is shown in the results.
+
+In conclusion, we can safely remove `total_bags` from the data set.
+
+```{r}
+avo_train <- avo_train %>% 
+  select(-total_bags)
+```
+
+`x4046`, `x4225` or `x4770` are Price Lookup Codes:
+
+(from https://loveonetoday.com/how-to/identify-hass-avocados/)
+
+The most commonly sold sizes of fresh Hass avocado can be identified by their 
+Price Look Up code or PLU or sticker.
+
+* Small/Medium Hass Avocado (~3-5oz avocado) | #4046 Avocado
+* Large Hass Avocado (~8-10oz avocado) | #4225 Avocado
+* Extra Large Hass Avocado (~10-15oz avocado) | #4770 Avocado
+
+## First Predictor
+
+Check the remaining variables for signs of correlation in order to determine
+possible predictors for the model;
+
+```{r}
+ggpairs(avo_train)
+```
+
+From the plot it appears as though `type` may be an important factor;
+
+```{r}
+avo_train %>% 
+  ggplot() +
+  aes(x = type, y = average_price) +
+  geom_boxplot() +
+  theme_bw() +
+  labs(title = "Average Price v Avocado Type",
+       x = "Avocado Type",
+       y = "Average Price")
+```
+
+
+`type` is a categorical variable, so should be checked for significance using 
+ANOVA both with and without `type` included;
+```{r}
+anova(lm(average_price ~ type, data = avo_train))
+```
+
+So in isolation, type is statistically significant.  So the first model could be;
+```{r}
+mod1a <- lm(average_price ~ type, data = avo_train)
+```
+
+How does this look;
+```{r}
+summary(mod1a)
+```
+
+This suggests that 38% of the variance in our model could be explained by `type`.
+
+Run the diagnostic plots;
+```{r}
+autoplot(mod1a)
+```
+
+These look acceptable;
+
+* The Residuals v Fitted are spread around 0 with a fairly flat line
+* Q-Q plot is not perfect, but is on the line for the most part
+* Scale - Location are in a band above the x-axis with only a very slight funnel
+effect evident.
+
+
+At the very start it looked like month might also be a factor due to the 
+seasonality of avocado growth and harvesting;
+
+```{r}
+mod1b <- lm(average_price ~ month, data = avo_train)
+```
+
+```{r}
+anova(mod1b)
+```
+
+```{r}
+autoplot(mod1b)
+```
+
+These don't look perfect, but once again the residuals v fitted are spread 
+across 0 with a fairy flat line, and the Q-Q plot is on the line for the mid-
+section of the points.
+
+```{r}
+summary(mod1b)
+```
+It looks like some of the months have a significant effect on average_price, 
+although the overall R-squared is poor.  If they are to be included then *all* 
+months will be included.
+
+It would make sense that avocado size would impact on price:
+
+```{r}
+mod1c <- lm(average_price ~ x4046, data = avo_train)
+```
+
+
+```{r}
+autoplot(mod1c)
+```
+
+The diagnostic plots really don't look acceptable.  There are signs of non-normal
+distribution in every plot.
+
+Try `x4225`;
+```{r}
+mod1d <- lm(average_price ~ x4225, data = avo_train)
+```
+
+
+```{r}
+autoplot(mod1d)
+```
+
+
+
+This is also unacceptable; try `x4770`
+```{r}
+mod1e <- lm(average_price ~ x4770, data = avo_train)
+```
+
+
+```{r}
+autoplot(mod1d)
+```
+
+
+`x4770` is also unacceptable in isolation.
+
+So type looks like the most promising predictor so far.
+
+## Second Predictor 
+
+Looking at residuals;
+```{r}
+avo_residuals <- avo_train %>% 
+  add_residuals(mod1a) %>% 
+  select(-c(average_price, type))
+
+avo_residuals_numeric <- avo_residuals %>%
+  select_if(is.numeric)
+
+avo_residuals_nonnumeric <- avo_residuals %>%
+  select_if(function(x) !is.numeric(x))
+
+avo_residuals_nonnumeric$resid <- avo_residuals$resid
+```
+
+```{r}
+ggpairs(avo_residuals_numeric)
+```
+
+```{r}
+ggpairs(avo_residuals_nonnumeric)
+```
+
+
+
+
+
+**look at week 10 / day 3 / 3_homework/homework_model_building_solution.html**
