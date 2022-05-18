@@ -141,28 +141,38 @@ k_clusters <- tibble(k = 1:max_k) %>%
   mutate(kclust = map(k, ~kmeans(customers_scale, .x, nstart = 25)), 
          tidied = map(kclust, tidy),
          glanced = map(kclust, glance),
-         augmented = map(kclust, augment, customers_trim))
+         augmented = map(kclust, augment, customers_scale))
 
 k_clusters
 ```
 
+```{r}
+clusterings <- k_clusters %>% 
+  unnest(glanced)
 
-Select k = 5;
+clusterings
+```
+
+
+
+
+Select k = 6;
 
 ```{r}
 clusterings %>% 
-  unnest(cols = c(augmented)) %>% 
-  filter(k == 5) %>% 
-  ggplot() +
-  aes(x = annual_income_k, spending_score_1_100, 
-      colour = .cluster,
-      label = .rownames) +
-  geom_point(aes(colour = .cluster)) +
-  geom_text(hjust = 0, vjust = -0.5, size = 3)
+  unnest(cols = c(augmented)) %>%
+  filter(k <= 6) %>%
+  ggplot(aes(x = annual_income_k, y = spending_score_1_100)) +
+  geom_point(aes(color = .cluster))
 ```
 
 
 * Do you think the clustering seems a good fit for this data?
+
+It looks like a generally good fit, but there seems to be a large overlap of 
+clusters in the most central group of points and cluster 1 has an outlier at
+around coord (-1.75, -0.45) which looks like it would be better suited to 
+cluster k = 5.
 
 * Comment on the attributes on one or two of the clusters (maybe even give them a label if you like - like in section 4.1 of the 'Segmentation & clustering intro' lesson). 
 
