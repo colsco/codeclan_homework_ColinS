@@ -167,6 +167,15 @@ clusterings %>%
 ```
 
 
+```{r}
+clusterings %>% 
+  unnest(augmented) %>%
+  filter(k == 6) %>%
+  group_by(.cluster) %>%
+  summarise(mean(annual_income_k), mean(spending_score_1_100))
+```
+
+
 * Do you think the clustering seems a good fit for this data?
 
 It looks like a generally good fit, but there seems to be a large overlap of 
