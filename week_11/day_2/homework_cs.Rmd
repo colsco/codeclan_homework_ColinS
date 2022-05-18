@@ -86,7 +86,7 @@ titanic_set_clean <- titanic_set %>%
   drop_na(c(survived, age)) %>% 
   mutate(survived = if_else(survived == 1, "survived", "died"),
          across(.cols = c(sex, survived, pclass, embarked), ~ as.factor(.)),
-  if_else(age <= 16, "child", "adult"))
+         if_else(age <= 16, "child", "adult"))
   
            
 ```
@@ -291,6 +291,11 @@ accuracy <- titanic_pred %>%
 accuracy 
 ```
  The model is around 82% accurate with this test data.
+ 
+ 
+ **Note: Sometimes the confusion table will label columns/rows alphabetically
+ if it cannot decide what label is supposed to be true and which is false.  It
+ is often better to have these parameters labelled simply as '0' and '1'.
 
 # Extension  
 

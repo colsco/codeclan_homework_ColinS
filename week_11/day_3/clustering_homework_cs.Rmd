@@ -1,0 +1,173 @@
+---
+title: "Clustering homework"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+* You have been provided some customer data from a shopping centre. Do some exploratory analysis on the data. Comment on findings. 
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(janitor)
+library(cluster)
+library(factoextra)
+library(dendextend)
+library(corrplot)
+library(broom)
+library(here)
+
+
+
+here::here()
+```
+
+
+```{r}
+customers <- read_csv(here("data/mall_customers.csv")) %>% clean_names()
+```
+
+```{r}
+# head(customers)
+# str(customers)
+```
+Within the customer data there are five columns.  `customer_id` is redundant
+in terms of clustering, but `spending_score` and `annual_income` look more 
+promising, perhaps in conjunction with `age` and `gender`.
+
+Check for missing values;
+```{r}
+customers %>% 
+  summarise(across(.cols = everything(), ~ sum(is.na(.x))))
+```
+
+There are no missing values.
+
+
+* We are interested in creating a marketing campaign to target customers based on their spending score and annual income. Perform a k-means clustering to find if there are meaningful clusters in the data to target the customers. 
+
+```{r}
+customers_trim <- customers %>% 
+  select(-customer_id)
+
+customers_scale <- customers_trim %>% 
+  mutate(across(where(is.numeric), scale),
+         gender = if_else(gender == "Male", 1, 0)) # need numeric value for kmeans
+
+customers_scale
+```
+
+```{r}
+cust_clust <- kmeans(customers_scale,
+                         centers = 6, # no. clusters desired
+                         nstart = 25) # from 25 random sets
+
+cust_clust
+  
+```
+
+
+```{r}
+tidy(cust_clust, col.names = colnames(customers_scale))
+```
+```{r}
+augment(cust_clust, customers_trim)
+```
+```{r}
+glance(cust_clust)
+```
+
+
+
+
+
+What do the spending score/annual income data look like;
+```{r}
+customers_scale %>% 
+  ggplot() +
+  aes(x = spending_score_1_100, annual_income_k, colour = gender) +
+  geom_point() +
+  labs(title = "Scaled Annual Income v Spending Score",
+       x = "Spending Score",
+       y = "Annual Income") +
+  theme_bw()
+```
+It looks like there are probably five easily identificable clusters here.
+
+* Perform k-means clustering and chose a value of k.
+
+### Elbow Method
+
+```{r}
+fviz_nbclust(customers_scale,
+             kmeans,
+             method = "wss",
+             nstart = 25)
+```
+The elbow method looks like it would be opimal to have 4 or 6 clusters, despite
+what's shown in the ggplot earlier.
+
+### Silhouette coeff. method
+
+```{r}
+fviz_nbclust(customers_scale,
+             kmeans,
+             method = "silhouette",
+             nstart = 25)
+```
+The silhouette coefficient recommeds an optimal 6 clusters.  
+
+### Gap Statistic
+
+```{r}
+fviz_nbclust(customers_scale,
+             kmeans,
+             method = "gap_stat",
+             nstart = 25,
+             k.max = 10)
+```
+...and the gap statistic recommends two clusters!
+
+* Visualise the clustering for your chosen value of k.
+
+
+```{r}
+max_k <- 20
+
+k_clusters <- tibble(k = 1:max_k) %>% 
+  mutate(kclust = map(k, ~kmeans(customers_scale, .x, nstart = 25)), 
+         tidied = map(kclust, tidy),
+         glanced = map(kclust, glance),
+         augmented = map(kclust, augment, customers_trim))
+
+k_clusters
+```
+
+
+Select k = 5;
+
+```{r}
+clusterings %>% 
+  unnest(cols = c(augmented)) %>% 
+  filter(k == 5) %>% 
+  ggplot() +
+  aes(x = annual_income_k, spending_score_1_100, 
+      colour = .cluster,
+      label = .rownames) +
+  geom_point(aes(colour = .cluster)) +
+  geom_text(hjust = 0, vjust = -0.5, size = 3)
+```
+
+
+* Do you think the clustering seems a good fit for this data?
+
+* Comment on the attributes on one or two of the clusters (maybe even give them a label if you like - like in section 4.1 of the 'Segmentation & clustering intro' lesson). 
+
+
+
+
+
+
