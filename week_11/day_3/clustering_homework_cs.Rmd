@@ -51,7 +51,7 @@ There are no missing values.
 
 ```{r}
 customers_trim <- customers %>% 
-  select(-customer_id, -gender)
+  select(-customer_id, -age, -gender)
 
 customers_scale <- customers_trim %>% 
   mutate(across(where(is.numeric), scale))
