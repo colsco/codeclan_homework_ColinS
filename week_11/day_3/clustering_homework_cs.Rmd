@@ -51,18 +51,19 @@ There are no missing values.
 
 ```{r}
 customers_trim <- customers %>% 
-  select(-customer_id)
+  select(-customer_id, -gender)
 
 customers_scale <- customers_trim %>% 
-  mutate(across(where(is.numeric), scale),
-         gender = if_else(gender == "Male", 1, 0)) # need numeric value for kmeans
+  mutate(across(where(is.numeric), scale))
+#         gender = if_else(gender == "Male", 1, 0)) 
+# need numeric value for kmeans
 
 customers_scale
 ```
 
 ```{r}
 cust_clust <- kmeans(customers_scale,
-                         centers = 6, # no. clusters desired
+                         centers = 5, # no. clusters desired
                          nstart = 25) # from 25 random sets
 
 cust_clust
@@ -88,7 +89,7 @@ What do the spending score/annual income data look like;
 ```{r}
 customers_scale %>% 
   ggplot() +
-  aes(x = spending_score_1_100, annual_income_k, colour = gender) +
+  aes(x = spending_score_1_100, annual_income_k) +
   geom_point() +
   labs(title = "Scaled Annual Income v Spending Score",
        x = "Spending Score",
@@ -98,6 +99,23 @@ customers_scale %>%
 It looks like there are probably five easily identificable clusters here.
 
 * Perform k-means clustering and chose a value of k.
+
+
+
+
+```{r}
+
+# This sets the min & max no. clusters to use; should be run before plots...
+max_k <- 20
+
+k_clusters <- tibble(k = 1:max_k) %>% 
+  mutate(kclust = map(k, ~kmeans(customers_scale, .x, nstart = 25)), 
+         tidied = map(kclust, tidy),
+         glanced = map(kclust, glance),
+         augmented = map(kclust, augment, customers_scale))
+
+k_clusters
+```
 
 ### Elbow Method
 
@@ -135,18 +153,6 @@ fviz_nbclust(customers_scale,
 
 
 ```{r}
-max_k <- 20
-
-k_clusters <- tibble(k = 1:max_k) %>% 
-  mutate(kclust = map(k, ~kmeans(customers_scale, .x, nstart = 25)), 
-         tidied = map(kclust, tidy),
-         glanced = map(kclust, glance),
-         augmented = map(kclust, augment, customers_scale))
-
-k_clusters
-```
-
-```{r}
 clusterings <- k_clusters %>% 
   unnest(glanced)
 
@@ -156,12 +162,12 @@ clusterings
 
 
 
-Select k = 6;
+Select k = 5;
 
 ```{r}
 clusterings %>% 
   unnest(cols = c(augmented)) %>%
-  filter(k <= 6) %>%
+  filter(k <= 5) %>%
   ggplot(aes(x = annual_income_k, y = spending_score_1_100)) +
   geom_point(aes(color = .cluster))
 ```
@@ -170,7 +176,7 @@ clusterings %>%
 ```{r}
 clusterings %>% 
   unnest(augmented) %>%
-  filter(k == 6) %>%
+  filter(k == 5) %>%
   group_by(.cluster) %>%
   summarise(mean(annual_income_k), mean(spending_score_1_100))
 ```
