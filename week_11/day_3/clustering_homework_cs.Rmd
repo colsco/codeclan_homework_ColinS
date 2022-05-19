@@ -184,10 +184,8 @@ clusterings %>%
 
 * Do you think the clustering seems a good fit for this data?
 
-It looks like a generally good fit, but there seems to be a large overlap of 
-clusters in the most central group of points and cluster 1 has an outlier at
-around coord (-1.75, -0.45) which looks like it would be better suited to 
-cluster k = 5.
+Yes - the data is clearly distributed in groups which clustering has been able 
+to identify.
 
 * Comment on the attributes on one or two of the clusters (maybe even give them a label if you like - like in section 4.1 of the 'Segmentation & clustering intro' lesson). 
 
