@@ -1,0 +1,20 @@
+---
+title: "Week 11 Weekend Homework | Logistic Regression"
+output: html_notebook
+---
+
+```{r, echo= FALSE, warning= FALSE, message= FALSE}
+library(tidyverse)
+library(here)
+library(janitor)
+
+here::here()
+```
+
+```{r}
+juice <- read_csv(here("data/orange_juice.csv")) %>% clean_names()
+
+head(juice)
+str(juice)
+```
+
