@@ -5,16 +5,527 @@ output: html_notebook
 
 ```{r, echo= FALSE, warning= FALSE, message= FALSE}
 library(tidyverse)
+library(modelr)
+library(broom)
+library(pROC)
 library(here)
+library(GGally)
 library(janitor)
+library(yardstick)
+
 
 here::here()
 ```
+## Read the Data
 
 ```{r}
 juice <- read_csv(here("data/orange_juice.csv")) %>% clean_names()
 
-head(juice)
-str(juice)
+# head(juice)
+# str(juice)
+# dim(juice)
 ```
 
+Set up the test-train split.  There are 1070 observations, so an 80/20 split
+would provide around 800 rows for training and 200 for testing;
+
+```{r}
+test_index <- sample(1:nrow(juice), size = nrow(juice)*0.2) # random 20% to be used for test
+
+juice_test  <- slice(juice, test_index)   # create test set
+juice_train <- slice(juice, -test_index)  # create training set
+```
+
+## Tidy the Data for Logistic Regression
+
+It looks like there are several connections between various columns;
+
+* `store7`, `store_id` and `store` look like they could be connected
+* Several price columns look like they are linked
+
+
+```{r}
+alias(lm(store ~ ., data = juice_train))
+```
+
+The `alias` function shows the following;
+
+* sale_price_mm = price_mm - disc_mm
+* sale_price_ch = price_ch - disc_ch
+* price_diff = price_mm - price_ch + disc_ch - disc_mm
+* list_price_diff = price_mm - price_ch
+
+In addition, it looks like `store`, `store7` and `store_id` are also connected;
+```{r}
+juice_train %>% 
+  ggplot() +
+  aes(x = store, y = store_id) +
+  geom_point() +
+  labs(title = "Store v Store ID")
+```
+
+This plot clearly shows that `store` and `store_id` are connected;
+
+* Store 0 = Store ID 7
+* Store 1 = Store ID 1
+* Store 2 = Store ID 2
+* Store 3 = Store ID 3
+* Store 4 = Store ID 4
+
+
+So in summary, the following columns can safely be removed;
+
+sale_price_mm, sale_price_ch, price_diff, list_price_diff, store_id, store7
+
+### Tidy Up
+
+The `purchase` column may be difficult to run in logistic regression and will 
+be set as a logical answer to the question "did the customer buy Minute Maid?"
+
+
+```{r}
+juice_train_trim <- juice_train %>% 
+  mutate(purchase = if_else(purchase == "MM", as.logical(TRUE), as.logical(FALSE))) %>% 
+  select(-c(sale_price_mm, 
+            sale_price_ch, 
+            price_diff, 
+            list_price_diff, 
+            store_id, 
+            store7))
+```
+
+```{r}
+ggpairs(juice_train_trim)
+  
+```
+
+Looking at the ggpairs, it seems like the customer brand loyalty score for 
+Citrus Hill is by far the biggest factor in deciding if any customer bought 
+Minute Maid;
+
+```{r}
+juice_train_trim %>% 
+  ggplot() +
+  aes(x = loyal_ch, y = purchase) +
+  geom_jitter(position = position_jitter(h = 0.1), alpha = 0.15) +
+  labs(title = "Citrus Hill Brand Loyalty Score v Juice Preference",
+       y = "Probability Customer Purchased Minute Maid\n",
+       x = "\nCustomer's Citrus Hill Brand Loyalty Score") 
+```
+
+This plot confirms that customers with higher Citrus Hill brand loyalty scores
+will usually choose to buy Citrus Hill over Minute Maid.
+
+Applying brand loyalty score `loyal_ch` as a first predictor, the first attempt
+at creating a model can be started;
+
+#### First Predictor
+
+###### mod1a
+
+```{r}
+juice_1a <- glm(purchase ~ loyal_ch, data = juice_train_trim,
+                family = binomial(link = "logit"))
+
+juice_1a
+```
+
+
+Plotting this as a function of `purchase` gives the following;
+
+```{r}
+predict_1a <- tibble(loyal_ch = seq(0, 1, 0.01)) %>% 
+  add_predictions(juice_1a, type = "response")
+
+juice_train_trim %>% 
+ggplot() +
+  aes(x = loyal_ch, y = as.integer(purchase)) +
+  geom_jitter(position = position_jitter(h = 0.1), alpha = 0.15) +
+  geom_line(data = predict_1a, 
+            aes(x = loyal_ch, y = pred), 
+            colour = "steelblue") +
+  labs(title = "Citrus Hill Brand Loyalty Score v Juice Preference",
+       y = "Probability Customer Purchased Minute Maid\n",
+       x = "\nCustomer's Citrus Hill Brand Loyalty Score") 
+  
+  
+```
+
+The calculations above suggest that if a customer's Citrus Hill brand loyalty 
+score increases by one unit, then the log of the odds of purchasing a Minute
+Maid decreases by around 6 units.
+
+Check what the train data looks like with predictions;
+```{r}
+juice_1a_with_pred <- juice_train_trim %>%
+  add_predictions(juice_1a, type = "response")
+head(juice_1a_with_pred)
+```
+
+
+```{r}
+summary(juice_1a)
+```
+
+
+The problem with trying to make predictions at this stage is that there is 
+currently no threshold set to define at what probability a customer would choose
+Minute Maid over Citrus Hill.  Try 0.5;
+```{r}
+threshold <- 0.5
+
+juice_1a_with_pred <- juice_1a_with_pred %>%
+  mutate(pred_thresh_0.5 = pred >= threshold) %>% 
+  relocate(pred_thresh_0.5, .after = "purchase")
+
+head(juice_1a_with_pred, 10)
+```
+
+The performance of the model can be checked with a confusion table;
+```{r}
+conf_table <- juice_1a_with_pred %>%
+  tabyl(purchase, pred_thresh_0.5)
+
+conf_table
+```
+This shows that the model using `loyal_ch` as a single predictor correctly 
+predicts true negatives 453 times and true positives 231 times.
+
+```{r}
+juice_1a_with_pred %>%
+  accuracy(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+
+Does this improve with a higher threshold?  Try 0.6;
+```{r}
+threshold <- 0.6
+
+juice_1a_with_pred <- juice_1a_with_pred %>%
+  mutate(pred_thresh_0.6 = pred >= threshold) %>% 
+  relocate(pred_thresh_0.6, .after = "purchase")
+
+head(juice_1a_with_pred, 10)
+```
+
+The performance of the model can be checked with a confusion table;
+```{r}
+conf_table <- juice_1a_with_pred %>%
+  tabyl(purchase, pred_thresh_0.6)
+
+conf_table
+```
+
+```{r}
+juice_1a_with_pred %>%
+  accuracy(as.factor(purchase), as.factor(pred_thresh_0.6))
+```
+
+So a threshold of 0.6 (78%) is actually less accurate than 0.5 (80%).
+
+
+Reset threshold back to 0.5;
+```{r}
+threshold <- 0.5
+```
+
+
+#### Second Predictor
+
+###### mod2a
+
+Check the residuals;
+```{r}
+juice_remaining_resid <- juice_train_trim %>%
+  add_residuals(juice_1a) %>%
+  select(-c("purchase", "loyal_ch"))
+
+juice_remaining_resid %>%
+  ggpairs()
+```
+
+The plot of residuals in ggpairs implies that `price_ch` might be significant;
+
+
+```{r}
+juice_2a <- glm(purchase ~ loyal_ch + price_ch, data = juice_train_trim,
+                family = binomial(link = "logit"))
+
+juice_2a
+```
+
+Including `price_ch` returns an AIC marginally higher than `loyal_ch` on it's own, 
+suggesting it might not create a better fitting model.
+
+```{r}
+tidy_out <- tidy(juice_2a)
+tidy_out
+```
+
+This is confirmed by the p-value for `price_ch` which is 0.35 (i.e. > 0.05).
+
+
+###### mod2b
+
+Does `price_mm` add significance and is it more significant than `price_ch`?
+
+It would seem sensible that if a lower price was offered on Minute Maid then the 
+probability might go up that more people would choose this drink.
+
+```{r}
+juice_2b <- glm(purchase ~ loyal_ch + price_mm, data = juice_train_trim,
+                family = binomial(link = "logit"))
+
+juice_2b
+```
+
+Including `price_mm` returns an AIC marginally lower than `loyal_ch` on it's own, 
+suggesting it might create a better fitting model.
+
+```{r}
+tidy_out <- tidy(juice_2b)
+tidy_out
+```
+
+
+This suggests that `price_mm` is in fact significant, with a p-value of 0.017.
+
+So the model so far is;
+
+$$purchase \sim loyal\_ch + price\_mm$$
+
+```{r}
+juice_2b_with_pred <- juice_train_trim %>%
+  add_predictions(juice_2b, type = "response")
+head(juice_2b_with_pred)
+```
+
+
+```{r}
+summary(juice_2b)
+```
+
+So both `loyal_ch` and `price_mm` are significant and the AIC with two predictors
+is slightly smaller than with one predictor.
+
+Check predictions again against threshold = 0.5;
+```{r}
+threshold <- 0.5
+
+juice_2b_with_pred <- juice_2b_with_pred %>%
+  mutate(pred_thresh_0.5 = pred >= threshold) %>% 
+  relocate(pred_thresh_0.5, .after = "purchase")
+
+head(juice_2b_with_pred, 10)
+```
+
+The performance of the model can be checked with a confusion table;
+```{r}
+conf_table <- juice_2b_with_pred %>%
+  tabyl(purchase, pred_thresh_0.5)
+
+conf_table
+```
+
+
+This model has predicted true negatives 461 times and true positives 229 times
+with an accuracy of;
+```{r}
+juice_2b_with_pred %>%
+  accuracy(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+Again, an accuracy of 80%.  The sensitivity (or True Positive Rate) is;
+
+```{r}
+juice_2b_with_pred %>%
+  sensitivity(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+The True Positive Rate is 86%, which seems quite good.
+
+
+And the specificity (True Negative Rate);
+
+```{r}
+juice_2b_with_pred %>%
+  specificity(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+The True Negative Rate is around 70%, which is a little worse than the TPR.
+
+
+Check the residuals again;
+```{r}
+juice_remaining_resid <- juice_train_trim %>%
+  add_residuals(juice_2b) %>%
+  select(-c("purchase", "loyal_ch", "price_mm"))
+
+juice_remaining_resid %>%
+  ggpairs()
+```
+
+
+The plot of residuals shows `price_ch` is still by far the most significant
+remaining factor, but this has already been shown to be insignificant with a
+p-value of 0.35.
+
+### Check Model Performance
+
+#### ROC Curve
+
+```{r}
+roc_obj_1pred <- juice_1a_with_pred %>%
+  roc(response = purchase, predictor = pred)
+
+roc_obj_2pred <- juice_2b_with_pred %>%
+  roc(response = purchase, predictor = pred)
+
+roc_curve <- ggroc(data = list(pred1 = roc_obj_1pred,
+                               pred2 = roc_obj_2pred),
+                   legacy.axes = TRUE) +
+  coord_fixed() + 
+  labs(title = "ROC Curve of purchase ~ loyal_ch + price_mm",
+       x = "1-specificity (TNR)",
+       y = "sensitivity (TPR)") +
+  theme_light()
+
+roc_curve
+```
+
+The ROC curve suggests that the 2-predictor model is very mrginally better than
+the single predictor model (i.e. it is closer to the top left corner).
+
+#### AUC 
+
+
+```{r}
+auc(roc_obj_1pred)
+```
+
+
+
+
+```{r}
+auc(roc_obj_2pred)
+```
+
+The AUC also backs up the first impressions of the two-predictor model being a
+better fit to the training data.
+
+#### Gini Coefficient
+
+The Gini coefficient normalises AUC so that a random classifier has value 0, and 
+a perfect classifier has value 1. 
+
+Gini = 2 × AUC − 1
+
+with a possible range of values
+
+−1 ≤ Gini ≤ 1
+
+Although, as for AUC, the practical range is
+
+0 ≤ Gini ≤ 1
+
+
+```{r}
+gini_1pred <-  2 * auc(roc_obj_1pred) - 1
+gini_1pred
+```
+
+```{r}
+gini_2pred <-  2 * auc(roc_obj_2pred) - 1
+gini_2pred
+```
+
+The Gini coefficient also backs the theory that the two predictor model is a 
+better fit to the training data.
+
+#### Add in the Test Data Set
+
+1. Tidy up the data;
+```{r}
+juice_test_trim <- juice_test %>% 
+  mutate(purchase = if_else(purchase == "MM", as.logical(TRUE), as.logical(FALSE))) %>% 
+  select(-c(sale_price_mm, 
+            sale_price_ch, 
+            price_diff, 
+            list_price_diff, 
+            store_id, 
+            store7))
+
+```
+
+
+2. Apply the model;
+```{r}
+juice_model <- glm(purchase ~ loyal_ch + price_mm, data = juice_test_trim,
+                family = binomial(link = "logit"))
+
+juice_model
+```
+
+3. Add Predictions;
+```{r}
+
+juice_test_with_pred <- juice_test_trim %>%
+  add_predictions(juice_2b, type = "response")
+head(juice_test_with_pred)
+```
+
+4. Check predictions again against threshold = 0.5;
+```{r}
+threshold <- 0.5
+
+juice_test_with_pred <- juice_test_with_pred %>%
+  mutate(pred_thresh_0.5 = pred >= threshold) %>% 
+  relocate(pred_thresh_0.5, .after = "purchase")
+
+head(juice_test_with_pred, 10)
+```
+
+
+5. Check Accuracy / Specificity / Sensitivity
+The performance of the model can be checked with a confusion table;
+```{r}
+conf_table <- juice_test_with_pred %>%
+  tabyl(purchase, pred_thresh_0.5)
+
+conf_table
+```
+The model predicted 110 true negatives and 63 true positives, with an accuracy;
+
+```{r}
+juice_test_with_pred %>% 
+  accuracy(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+An overall accuracy of 80% is the sae as the training set, which suggests minimal
+overfitting.
+
+```{r}
+juice_test_with_pred %>%
+  sensitivity(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+The True Positive Rate is 83%, which seems quite good.
+
+
+And the specificity (True Negative Rate);
+
+```{r}
+juice_test_with_pred %>%
+  specificity(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+A True Negative Rate of 75% also corresponds well with the training set.
+
+
+#### Summary
+
+Overall a two-predictor model has been found to be the best model for predicting
+whether or not a customer might buy Minute Maid or Citrus Hill, according to the
+relationship;
+
+$$purchase_{(MM\ or\ CH)} \sim CH\_brand\_loyalty + price\_MM$$
