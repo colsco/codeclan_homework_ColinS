@@ -1,0 +1,174 @@
+---
+title: "Week 11 Weekend Homework | Text Mining"
+output: html_notebook
+---
+
+```{r}
+library(janeaustenr)
+library(tidyverse)
+library(tidytext)
+library(textdata)
+```
+
+# MVP 
+
+Using the dataset austen_books() from the package janeaustenr:
+
+1. Find the most common words in both Pride & Prejudice and Sense & Sensibility.
+
+```{r}
+# Change Pride & Prejudice into a tibble of words;
+
+pride_book <- tibble(
+  id = 1:length(prideprejudice),
+  text = prideprejudice) %>% 
+  unnest_tokens(word, text) 
+pride_book %>% 
+  count(word, sort = TRUE)
+
+
+# and repeat for Sense & Sensibility
+
+sense_book <- tibble(
+  id = 1:length(sensesensibility),
+  text = sensesensibility) %>% 
+  unnest_tokens(word, text) 
+sense_book %>% 
+  count(word, sort = TRUE)
+
+
+```
+
+
+The most common words in "Pride and Prejudice" and "Sense and Sensibility" are 
+stop words.
+
+
+2. Find the most common words in both Pride & Prejudice and Sense & Sensibility, 
+not including stop words.
+
+Stop words can be removed by anti-joining the `stop_words` lexicon;
+```{r}
+
+pride_book %>% 
+  anti_join(stop_words, by = "word") %>% 
+  count(word, sort = TRUE)
+```
+
+```{r}
+sense_book %>% 
+  anti_join(stop_words, by = "word") %>% 
+  count(word, sort = TRUE)
+```
+
+
+
+3. Find the most common sentiment words in both Pride & Prejudice and Sense & 
+Sensibility.
+
+Using the "bing" lexicon;
+
+```{r}
+pride_sentiment <- pride_book %>% 
+  inner_join(get_sentiments("bing"), by = "word") %>%  # inner_join to avoid NAs
+  count(word, sort = TRUE)
+pride_sentiment
+```
+
+The top word is "miss", but this is a term of address rather than something having
+been "missed", so can be removed;
+
+```{r}
+pride_sentiment <- pride_book %>%
+  filter(word!= "miss") %>% 
+  inner_join(get_sentiments("bing"), by = "word") %>%  # inner_join to avoid NAs
+  count(word, sort = TRUE)
+pride_sentiment
+```
+
+
+...and the same for "Sense and Sensibility"...
+
+```{r}
+sense_sentiment <- sense_book %>% 
+  filter(word != "miss") %>% 
+  inner_join(get_sentiments("bing"), by = "word") %>% 
+  count(word, sort = TRUE)
+sense_sentiment
+```
+
+# 2 Extension
+Taking your results above. Can you create a plot which visualises the differences 
+between the books?
+
+
+Probably best to run a comparison of sentences, rather than words;
+
+
+```{r}
+book_pride <- tibble(
+  text = prideprejudice,
+  sentence = 1:length(prideprejudice)) %>% 
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words, by = "word") %>%   # remove stop words
+  mutate(book = "pride")
+
+
+book_sense <- tibble(
+  text = sensesensibility,
+  sentence = 1:length(sensesensibility)) %>% 
+  unnest_tokens(word, text) %>% 
+  anti_join(stop_words, by = "word") %>%  #remove stop words
+  mutate(book = "sense")
+
+sense_pride <- bind_rows(book_pride, book_sense) %>% 
+  arrange(sentence) 
+
+sentiment_scores <- sense_pride %>% 
+  filter(word != "miss") %>%  
+  inner_join(get_sentiments("afinn"), by = "word") %>% 
+  # use afinn for numeric values
+  group_by(book, sentence) %>% 
+  summarise(n_words = n(), mean_sentiment = mean(value),
+            total_sentiment = sum(value))
+
+
+```
+
+```{r}
+sentiment_scores %>% 
+  ggplot() +
+  aes(x = sentence, y = mean_sentiment, colour = book) +
+  geom_point(colour = "grey80", alpha = 0.1) +
+  geom_smooth(method = "loess") +
+  theme_light() +
+  labs(title = "Mean Sentence Sentiment Comparison of 
+       Pride and Prejudice v Sense and Sensibility",
+       x = "Sentence No.",
+       y = "Mean Sentiment Score (afinn)",
+       colour = "Book")
+```
+
+The plot shows that both books score very similar results for sentiment on 
+average, with Pride and Prejudice possibly having a happier ending than Sense
+and Sensibility.  The mean remains above 0 for the duration of the books, so 
+the good sentiments outweigh the bad.
+
+Looking at total sentiment scores;
+
+```{r}
+sentiment_scores %>% 
+  ggplot() +
+  aes(x = sentence, y = total_sentiment, colour = book) +
+  geom_point(colour = "grey80", alpha = 0.1) +
+  geom_smooth(method = "loess") +
+  theme_light() +
+  labs(title = "Total Sentence Sentiment Comparison of 
+       Pride and Prejudice v Sense and Sensibility",
+       x = "Sentence No.",
+       y = "Total Sentiment Score (afinn)",
+       colour = "Book")
+```
+
+The total sentiment score between the books is closer, but once agani Pride and
+Prejudice appears to finish on a slightly happier note.
