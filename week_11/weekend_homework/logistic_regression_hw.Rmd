@@ -197,7 +197,8 @@ juice_1a_with_pred %>%
 ```
 
 
-Does this improve with a higher threshold?  Try 0.6;
+Does this improve with a higher threshold?  Can't think why it would in this
+case where we only have a choice between one of two drinks, but try 0.6;
 ```{r}
 threshold <- 0.6
 
@@ -234,40 +235,42 @@ threshold <- 0.5
 
 ###### mod2a
 
-Check the residuals;
 ```{r}
-juice_remaining_resid <- juice_train_trim %>%
-  add_residuals(juice_1a) %>%
-  select(-c("purchase", "loyal_ch"))
-
-juice_remaining_resid %>%
-  ggpairs()
-```
-
-The plot of residuals in ggpairs implies that `price_ch` might be significant;
-
-
-```{r}
-juice_2a <- glm(purchase ~ loyal_ch + price_ch, data = juice_train_trim,
+juice_second <- glm(purchase ~ ., data = juice_train_trim,
                 family = binomial(link = "logit"))
 
-juice_2a
+summary(juice_second)
 ```
+It looks like `price_mm` is a likely candidate for the next predictor;
 
-Including `price_ch` returns an AIC marginally higher than `loyal_ch` on it's own, 
-suggesting it might not create a better fitting model.
+------------------
+
+*I misread the summary table first time round and took `price_ch` by mistake -* 
+*it wasn't until I looked at my results that I realised my error!  Have left the* 
+*code in but commented it out...*
+
+<!-- It looks like `price_ch` might be significant; -->
+
 
 ```{r}
-tidy_out <- tidy(juice_2a)
-tidy_out
+# juice_2a <- glm(purchase ~ loyal_ch + price_ch, data = juice_train_trim,
+#                 family = binomial(link = "logit"))
+# 
+# juice_2a
 ```
 
-This is confirmed by the p-value for `price_ch` which is 0.35 (i.e. > 0.05).
+<!-- Including `price_ch` returns an AIC marginally higher than `loyal_ch` on it's own,  -->
+<!-- suggesting it might not create a better fitting model. -->
 
+```{r}
+# tidy_out <- tidy(juice_2a)
+# tidy_out
+```
+
+<!-- This is confirmed by the p-value for `price_ch` which is 0.35 (i.e. > 0.05). -->
+------------------
 
 ###### mod2b
-
-Does `price_mm` add significance and is it more significant than `price_ch`?
 
 It would seem sensible that if a lower price was offered on Minute Maid then the 
 probability might go up that more people would choose this drink.
@@ -276,7 +279,7 @@ probability might go up that more people would choose this drink.
 juice_2b <- glm(purchase ~ loyal_ch + price_mm, data = juice_train_trim,
                 family = binomial(link = "logit"))
 
-juice_2b
+summary(juice_2b)
 ```
 
 Including `price_mm` returns an AIC marginally lower than `loyal_ch` on it's own, 
@@ -354,22 +357,6 @@ juice_2b_with_pred %>%
 
 The True Negative Rate is around 70%, which is a little worse than the TPR.
 
-
-Check the residuals again;
-```{r}
-juice_remaining_resid <- juice_train_trim %>%
-  add_residuals(juice_2b) %>%
-  select(-c("purchase", "loyal_ch", "price_mm"))
-
-juice_remaining_resid %>%
-  ggpairs()
-```
-
-
-The plot of residuals shows `price_ch` is still by far the most significant
-remaining factor, but this has already been shown to be insignificant with a
-p-value of 0.35.
-
 ### Check Model Performance
 
 #### ROC Curve
@@ -393,11 +380,11 @@ roc_curve <- ggroc(data = list(pred1 = roc_obj_1pred,
 roc_curve
 ```
 
-The ROC curve suggests that the 2-predictor model is very mrginally better than
+The ROC curve suggests that the 2-predictor model is very marginally better than
 the single predictor model (i.e. it is closer to the top left corner).
 
-#### AUC 
 
+#### AUC 
 
 ```{r}
 auc(roc_obj_1pred)
@@ -501,7 +488,7 @@ juice_test_with_pred %>%
   accuracy(as.factor(purchase), as.factor(pred_thresh_0.5))
 ```
 
-An overall accuracy of 80% is the sae as the training set, which suggests minimal
+An overall accuracy of 80% is the same as the training set, which suggests minimal
 overfitting.
 
 ```{r}
