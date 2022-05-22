@@ -1,6 +1,8 @@
 ---
 title: "Week 11 Weekend Homework | Logistic Regression"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r, echo= FALSE, warning= FALSE, message= FALSE}
@@ -357,6 +359,90 @@ juice_2b_with_pred %>%
 
 The True Negative Rate is around 70%, which is a little worse than the TPR.
 
+#### Third Predictor
+
+###### mod3a
+
+```{r}
+juice_third <- glm(purchase ~ ., data = juice_train_trim,
+                family = binomial(link = "logit"))
+
+summary(juice_third)
+```
+Reviewing the summary above again suggests that `disc_mm` is also a likely 
+predictor for the model;
+
+```{r}
+juice_3a <- glm(purchase ~ loyal_ch + price_mm + disc_mm, 
+                data = juice_train_trim,
+                family = binomial(link = "logit"))
+
+summary(juice_3a)
+```
+As suspected, `disc_mm` is also a significant factor in juice choice.
+
+```{r}
+juice_3a_with_pred <- juice_train_trim %>%
+  add_predictions(juice_3a, type = "response")
+head(juice_3a_with_pred)
+```
+```{r}
+summary(juice_3a)
+```
+The AIC when `disc_mm` is included is improved, implying that this is a valid 
+choice of predictor.
+
+Check predictions against a threshold of 0.5;
+```{r}
+threshold <- 0.5
+
+juice_3a_with_pred <- juice_3a_with_pred %>%
+  mutate(pred_thresh_0.5 = pred >= threshold) %>% 
+  relocate(pred_thresh_0.5, .after = "purchase")
+
+head(juice_3a_with_pred, 10)
+```
+
+And check the confusion table again;
+
+```{r}
+conf_table <- juice_3a_with_pred %>%
+  tabyl(purchase, pred_thresh_0.5)
+
+conf_table
+```
+So in this case the model has correctly predicted 446 negatives and 250 positives
+with an accuracy of;
+
+```{r}
+juice_3a_with_pred %>%
+  accuracy(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+
+A slight increase over the two-predictor model with 81%.
+
+The sensitivity (or True Positive Rate) is;
+
+```{r}
+juice_3a_with_pred %>%
+  sensitivity(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+The True Positive Rate is 86%, which remains quite good.
+
+
+And the specificity (True Negative Rate);
+
+```{r}
+juice_3a_with_pred %>%
+  specificity(as.factor(purchase), as.factor(pred_thresh_0.5))
+```
+
+The True Negative Rate is around 74%, which is an increase on the two-predictor
+model.
+
+
 ### Check Model Performance
 
 #### ROC Curve
@@ -368,8 +454,12 @@ roc_obj_1pred <- juice_1a_with_pred %>%
 roc_obj_2pred <- juice_2b_with_pred %>%
   roc(response = purchase, predictor = pred)
 
+roc_obj_3pred <- juice_3a_with_pred %>% 
+  roc(response = purchase, predictor = pred)
+
 roc_curve <- ggroc(data = list(pred1 = roc_obj_1pred,
-                               pred2 = roc_obj_2pred),
+                               pred2 = roc_obj_2pred,
+                               pred3 = roc_obj_3pred),
                    legacy.axes = TRUE) +
   coord_fixed() + 
   labs(title = "ROC Curve of purchase ~ loyal_ch + price_mm",
@@ -380,8 +470,8 @@ roc_curve <- ggroc(data = list(pred1 = roc_obj_1pred,
 roc_curve
 ```
 
-The ROC curve suggests that the 2-predictor model is very marginally better than
-the single predictor model (i.e. it is closer to the top left corner).
+The ROC curve suggests that the 3-predictor model is better than the single and
+two-predictor models (i.e. it is closer to the top left corner).
 
 
 #### AUC 
@@ -391,13 +481,16 @@ auc(roc_obj_1pred)
 ```
 
 
-
-
 ```{r}
 auc(roc_obj_2pred)
 ```
 
-The AUC also backs up the first impressions of the two-predictor model being a
+```{r}
+auc(roc_obj_3pred)
+```
+
+
+The AUC also backs up the first impressions of the three-predictor model being a
 better fit to the training data.
 
 #### Gini Coefficient
@@ -426,7 +519,13 @@ gini_2pred <-  2 * auc(roc_obj_2pred) - 1
 gini_2pred
 ```
 
-The Gini coefficient also backs the theory that the two predictor model is a 
+```{r}
+gini_3pred <-  2 * auc(roc_obj_3pred) - 1
+gini_3pred
+```
+
+
+The Gini coefficient also backs the theory that the three predictor model is a 
 better fit to the training data.
 
 #### Add in the Test Data Set
@@ -447,8 +546,9 @@ juice_test_trim <- juice_test %>%
 
 2. Apply the model;
 ```{r}
-juice_model <- glm(purchase ~ loyal_ch + price_mm, data = juice_test_trim,
-                family = binomial(link = "logit"))
+juice_model <- glm(purchase ~ loyal_ch + price_mm + disc_mm, 
+                   data = juice_test_trim,
+                   family = binomial(link = "logit"))
 
 juice_model
 ```
@@ -457,7 +557,7 @@ juice_model
 ```{r}
 
 juice_test_with_pred <- juice_test_trim %>%
-  add_predictions(juice_2b, type = "response")
+  add_predictions(juice_3a, type = "response")
 head(juice_test_with_pred)
 ```
 
@@ -481,14 +581,14 @@ conf_table <- juice_test_with_pred %>%
 
 conf_table
 ```
-The model predicted 110 true negatives and 63 true positives, with an accuracy;
+The model predicted 119 true negatives and 58 true positives, with an accuracy;
 
 ```{r}
 juice_test_with_pred %>% 
   accuracy(as.factor(purchase), as.factor(pred_thresh_0.5))
 ```
 
-An overall accuracy of 80% is the same as the training set, which suggests minimal
+An overall accuracy of 82% is similar to the training set, which suggests minimal
 overfitting.
 
 ```{r}
@@ -496,7 +596,7 @@ juice_test_with_pred %>%
   sensitivity(as.factor(purchase), as.factor(pred_thresh_0.5))
 ```
 
-The True Positive Rate is 83%, which seems quite good.
+The True Positive Rate is 89%, which seems quite good.
 
 
 And the specificity (True Negative Rate);
@@ -506,13 +606,13 @@ juice_test_with_pred %>%
   specificity(as.factor(purchase), as.factor(pred_thresh_0.5))
 ```
 
-A True Negative Rate of 75% also corresponds well with the training set.
+A True Negative Rate of 71% also corresponds well with the training set.
 
 
 #### Summary
 
-Overall a two-predictor model has been found to be the best model for predicting
+Overall a three-predictor model has been found to be the best model for predicting
 whether or not a customer might buy Minute Maid or Citrus Hill, according to the
 relationship;
 
-$$purchase_{(MM\ or\ CH)} \sim CH\_brand\_loyalty + price\_MM$$
+$$purchase_{(MM\ or\ CH)} \sim CH\_brand\_loyalty + price\_MM + discount\_MM$$
